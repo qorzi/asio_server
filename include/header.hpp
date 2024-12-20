@@ -1,9 +1,10 @@
-#ifndef PARSER_HPP
-#define PARSER_HPP
+#ifndef HEADER_HPP
+#define HEADER_HPP
 
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <cstring>
 
 // 요청 타입을 정의하는 enum
 enum class RequestType : uint8_t {
@@ -19,10 +20,4 @@ struct Header {
     uint32_t body_length;   // 본문 길이
 };
 
-class Parser {
-public:
-    static Header parse_header(const std::vector<char>& header);
-    static std::string process_body(const std::string& body);
-};
-
-#endif // PARSER_HPP
+#endif // HEADER_HPP

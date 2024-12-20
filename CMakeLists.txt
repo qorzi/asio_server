@@ -15,7 +15,6 @@ set(SOURCES
     src/reactor.cpp
     src/connection.cpp
     src/thread_pool.cpp
-    src/parser.cpp
 )
 
 # 타겟 생성

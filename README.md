@@ -1,4 +1,5 @@
 # 비동기 이벤트 기반 서버 프로젝트
+- boost.asio를 사용하여, 리액터 패턴 형태의 비동기 이벤트 기반 서버를 구축한다.
 
 ## 폴더 구조
 ```plain
@@ -9,12 +10,11 @@ asio_server/
 │   ├── reactor.cpp        # Reactor 구현
 │   ├── connection.cpp     # Connection 구현
 │   ├── thread_pool.cpp    # ThreadPool 구현
-│   ├── parser.cpp         # Parser 구현
 ├── include/               # 헤더 파일 폴더
 │   ├── reactor.hpp        # Reactor 헤더
 │   ├── connection.hpp     # Connection 헤더
 │   ├── thread_pool.hpp    # ThreadPool 헤더
-│   ├── parser.hpp         # Parser 헤더
+│   ├── header.hpp         # Header 헤더
 ├── scripts/               # 스크립트 폴더
 │   ├── setup.sh           # 개발 환경 세팅 스크립트
 │   └── build.sh           # 빌드 스크립트
