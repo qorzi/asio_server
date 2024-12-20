@@ -18,6 +18,7 @@ public:
     void onRead(const std::vector<char>& data);
     void onWrite(const std::vector<char>& data);
     void onClose();
+    void onError(const std::vector<char>& data);
 
     void start_monitoring(std::function<void(const Event&)> enqueue_callback);
 

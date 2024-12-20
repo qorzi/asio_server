@@ -45,6 +45,9 @@ void Reactor::event_loop() {
                 case EventType::CLOSE:
                     connection->onClose();
                     break;
+                case EventType::ERROR:
+                    connection->onError(event.data);
+                    break;
             }
         } else {
             std::cerr << "Connection object is no longer valid." << std::endl;

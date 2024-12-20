@@ -18,10 +18,15 @@ void Connection::read_header() {
     boost::asio::async_read(socket_, boost::asio::buffer(*header_buffer),
         [this, self, header_buffer](const boost::system::error_code& ec, std::size_t bytes_transferred) {
             if (!ec && bytes_transferred == sizeof(Header)) {
-                Header header = parse_header(*header_buffer);
-                read_body(header); // 헤더가 성공적으로 읽힌 경우, 바디 읽기 시작
+                try {
+                    Header header = parse_header(*header_buffer);
+                    read_body(header); // 헤더가 성공적으로 읽힌 경우, 바디 읽기 시작
+                } catch (const std::exception& e) {
+                    enqueue_callback_(Event{EventType::ERROR, self, std::vector<char>(e.what(), e.what() + std::strlen(e.what()))});
+                }
             } else {
-                enqueue_callback_(Event{EventType::CLOSE, self, {}});
+                std::string error_message = ec ? ec.message() : "Unknown error while reading header.";
+                enqueue_callback_(Event{EventType::ERROR, self, std::vector<char>(error_message.begin(), error_message.end())});
             }
         });
 }
@@ -87,5 +92,11 @@ void Connection::onWrite(const std::vector<char>& data) {
 
 void Connection::onClose() {
     std::cout << "Connection closed." << std::endl;
+    // 미구현
+}
+
+void Connection::onError(const std::vector<char>& data) {
+    std::string error_message(data.begin(), data.end());
+    std::cerr << "Error: " << error_message << std::endl;
     // 미구현
 }
