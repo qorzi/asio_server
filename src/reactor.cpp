@@ -1,8 +1,9 @@
 #include "reactor.hpp"
 #include "connection.hpp"
 
-Reactor::Reactor(unsigned short port)
-    : acceptor_(io_context_, tcp::endpoint(tcp::v4(), port)) {}
+Reactor::Reactor(unsigned short port, ThreadPool& thread_pool)
+    : acceptor_(io_context_, tcp::endpoint(tcp::v4(), port))
+    , thread_pool_(thread_pool) {}
 
 void Reactor::run() {
     start_accept();
@@ -21,7 +22,7 @@ void Reactor::start_accept() {
 
 void Reactor::handle_accept(std::shared_ptr<tcp::socket> socket) {
     // 클라이언트 연결 생성 및 시작
-    auto connection = std::make_shared<Connection>(std::move(*socket));
+    auto connection = std::make_shared<Connection>(std::move(*socket), thread_pool_);
     connection->start_monitoring([this](const Event& event) {
         this->enqueue_event(event); // Reactor의 이벤트 큐에 등록
     });

@@ -1,7 +1,8 @@
 #include "connection.hpp"
 
-Connection::Connection(tcp::socket socket)
-    : socket_(std::move(socket)) {}
+Connection::Connection(tcp::socket socket, ThreadPool& thread_pool)
+    : socket_(std::move(socket))
+    , thread_pool_(thread_pool) {}
 
 void Connection::start_monitoring(std::function<void(const Event&)> enqueue_callback) {
     enqueue_callback_ = std::move(enqueue_callback);
@@ -15,6 +16,7 @@ void Connection::async_read() {
 void Connection::read_header() {
     auto header_buffer = std::make_shared<std::vector<char>>(sizeof(Header));
     auto self = shared_from_this();
+
     boost::asio::async_read(socket_, boost::asio::buffer(*header_buffer),
         [this, self, header_buffer](const boost::system::error_code& ec, std::size_t bytes_transferred) {
             if (!ec && bytes_transferred == sizeof(Header)) {
@@ -22,11 +24,18 @@ void Connection::read_header() {
                     Header header = parse_header(*header_buffer);
                     read_body(header); // 헤더가 성공적으로 읽힌 경우, 바디 읽기 시작
                 } catch (const std::exception& e) {
-                    enqueue_callback_(Event{EventType::ERROR, self, std::vector<char>(e.what(), e.what() + std::strlen(e.what()))});
+                    enqueue_callback_(Event{
+                        EventType::ERROR,
+                        self,
+                        std::vector<char>(e.what(), e.what() + std::strlen(e.what()))
+                    });
                 }
             } else {
                 std::string error_message = ec ? ec.message() : "Unknown error while reading header.";
-                enqueue_callback_(Event{EventType::ERROR, self, std::vector<char>(error_message.begin(), error_message.end())});
+                enqueue_callback_(Event{
+                    EventType::ERROR,
+                    self,
+                    std::vector<char>(error_message.begin(), error_message.end())});
             }
         });
 }
