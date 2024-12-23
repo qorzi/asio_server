@@ -92,11 +92,20 @@ void Connection::onWrite(const std::vector<char>& data) {
 
 void Connection::onClose() {
     std::cout << "Connection closed." << std::endl;
-    // 미구현
+
+    // 소켓 닫기
+    boost::system::error_code ec;
+    socket_.close(ec); // 소켓 강제 종료
+    if (ec) {
+        std::cerr << "Failed to close socket: " << ec.message() << std::endl;
+    }
 }
 
 void Connection::onError(const std::vector<char>& data) {
     std::string error_message(data.begin(), data.end());
     std::cerr << "Error: " << error_message << std::endl;
-    // 미구현
+
+    // Close 이벤트 큐에 등록
+    enqueue_callback_(Event{EventType::CLOSE, shared_from_this(), {}});
 }
+
