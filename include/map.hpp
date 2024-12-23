@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <algorithm>
 #include <cstdlib>
 
 class Map {
@@ -19,7 +20,7 @@ public:
     int max_height;                       // 맵 최대 세로 크기
 
     Map(const std::string& name, int width, int height);
-    void generate_random_portals(int num_portals);         // 포탈 랜덤 생성
+    std::string generate_random_portal();         // 포탈 랜덤 생성
     bool is_portal(const Point& position) const;           // 현재 위치가 포탈인지 확인
     bool is_valid_position(const Point& position) const;   // 유요한 위치인지 확인
 };
