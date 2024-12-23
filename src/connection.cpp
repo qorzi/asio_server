@@ -1,4 +1,7 @@
 #include "connection.hpp"
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 Connection::Connection(tcp::socket socket, ThreadPool& thread_pool)
     : socket_(std::move(socket))
@@ -35,7 +38,8 @@ void Connection::read_header() {
                 enqueue_callback_(Event{
                     EventType::ERROR,
                     self,
-                    std::vector<char>(error_message.begin(), error_message.end())});
+                    std::vector<char>(error_message.begin(), error_message.end())
+                });
             }
         });
 }
@@ -57,6 +61,7 @@ void Connection::read_body(const Header& header) {
 
 void Connection::continue_body_read(std::shared_ptr<std::vector<char>> body_buffer, const Header& header, std::size_t bytes_read) {
     auto self = shared_from_this();
+
     boost::asio::async_read(socket_, boost::asio::buffer(body_buffer->data() + bytes_read, header.body_length - bytes_read),
         [this, self, body_buffer, header, bytes_read](const boost::system::error_code& ec, std::size_t bytes_transferred) {
             if (!ec) {
@@ -65,8 +70,15 @@ void Connection::continue_body_read(std::shared_ptr<std::vector<char>> body_buff
                     // 다 읽지 못했다면, 계속 읽음
                     continue_body_read(body_buffer, header, total_bytes_read);
                 } else {
-                    // 모든 데이터를 읽었다면, 이벤트 큐에 등록
-                    enqueue_callback_(Event{EventType::READ, self, *body_buffer});
+                    // 모든 데이터를 읽었다면, READ 이벤트 등록
+                    Event ev;
+                    ev.event_type = EventType::READ;
+                    ev.connection = self;
+                    ev.request_type = header.type;
+                    ev.data = *body_buffer;
+
+                    enqueue_callback_(ev);
+
                     async_read(); // 다음 수신 대기
                 }
             } else {
@@ -78,6 +90,7 @@ void Connection::continue_body_read(std::shared_ptr<std::vector<char>> body_buff
 void Connection::async_write(const std::string& data) {
     auto buffer = std::make_shared<std::string>(data);
     auto self = shared_from_this();
+
     boost::asio::async_write(socket_, boost::asio::buffer(*buffer),
         [this, self, buffer](const boost::system::error_code& ec, std::size_t) {
             if (!ec) {
@@ -88,10 +101,44 @@ void Connection::async_write(const std::string& data) {
         });
 }
 
-void Connection::onRead(const std::vector<char>& data) {
+void Connection::onRead(const std::vector<char>& data, RequestType type) {
     std::string message(data.begin(), data.end());
     std::cout << "Received data: " << message << std::endl;
-    // 미구현
+    
+    try {
+        // JSON 파싱
+        json parsed_data = json::parse(data);
+
+        // std::string body  = parsed_data["something"].get<std::string>();
+
+        // 요청 타입에 따라 분기 처리
+        switch (type) {
+        case RequestType::IN:
+        {
+            // 스레드 풀에 작업 등록 (예시: “게임 접속 처리”)
+            std::string task_info = "게임에 접속 요청 (body: " + body + ")";
+            thread_pool_.enqueue_task(task_info);
+
+            // 필요하면 응답 전송
+            // async_write(...);
+
+            break;
+        }
+        case RequestType::OUT:
+        {
+            // OUT 로직
+            break;
+        }
+        // 기타타
+        default:
+            std::cout << "Unknown request type from header.\n";
+            break;
+        }
+
+    } catch (const std::exception& e) {
+        std::cerr << "JSON parsing error: " << e.what() << std::endl;
+        enqueue_callback_(Event{EventType::ERROR, shared_from_this(), {}});
+    }
 }
 
 void Connection::onWrite(const std::vector<char>& data) {

@@ -38,7 +38,7 @@ void Reactor::event_loop() {
         if (auto connection = event.connection.lock()) {
             switch (event.type) {
                 case EventType::READ:
-                    connection->onRead(event.data);
+                    connection->onRead(event.data, event.request_type);
                     break;
                 case EventType::WRITE:
                     connection->onWrite(event.data);

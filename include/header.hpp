@@ -9,9 +9,9 @@
 // 요청 타입을 정의하는 enum
 enum class RequestType : uint8_t {
     UNKNOWN = 0,
-    GET = 1,
-    POST = 2,
-    DELETE = 3
+    IN = 1,
+    OUT = 2,
+    INPUT = 3
 };
 
 // 헤더 구조체 정의
