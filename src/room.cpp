@@ -23,17 +23,19 @@ void Room::initialize_maps() {
 }
 
 bool Room::add_player(std::shared_ptr<Player> player) {
+    std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금금
     if (is_full()) {
         return false;
     }
     players.push_back(player);
     player->room = shared_from_this();
-    player->current_map = maps[0];
+    player->current_map = maps[0]; // 첫 번째 맵으로 설정정
     player->position = maps[0]->start_point;
     return true;
 }
 
 void Room::remove_player(std::shared_ptr<Player> player) {
+    std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금
     players.erase(std::remove(players.begin(), players.end(), player), players.end());
 }
 
