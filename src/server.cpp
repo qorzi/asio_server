@@ -55,6 +55,10 @@ void Server::start_room_timer() {
     }).detach();
 }
 
+std::shared_ptr<Room> Server::get_current_room() const {
+    return current_room;
+}
+
 // 브로드캐스팅 함수
 void Server::broadcast_to_room(int room_id, const std::string& message) {
     std::unique_lock<std::mutex> lock(room_mutex);
