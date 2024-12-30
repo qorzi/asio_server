@@ -26,14 +26,24 @@ void Room::initialize_maps() {
 }
 
 bool Room::add_player(std::shared_ptr<Player> player) {
-    std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금금
+    std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금
+
+    // 타이머가 비활성화 상태면 유저 추가 불가
+    if (!timer_active.load(std::memory_order_relaxed)) {
+        return false;
+    }
+
+    // 방이 가득 찬 경우 추가 불가
     if (is_full()) {
         return false;
     }
+
+    // 유저 추가
     players.push_back(player);
     player->room = shared_from_this();
-    player->current_map = maps[0]; // 첫 번째 맵으로 설정정
+    player->current_map = maps[0]; // 첫 번째 맵으로 설정
     player->position = maps[0]->start_point;
+
     return true;
 }
 
@@ -83,7 +93,7 @@ void Room::start_timer(std::function<void(int)> on_timer_expired,
             // 경과 시간 업데이트
             elapsed_time += check_interval_seconds;
 
-            // `players` 상태 확인 - 방에 플레이어가 없으면 만료 처리리
+            // `players` 상태 확인 - 방에 플레이어가 없으면 만료 처리
             if (players.empty()) {
                 on_timer_expired(id); // 타이머 만료 처리
                 break;
