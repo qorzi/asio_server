@@ -31,10 +31,9 @@ void Server::add_new_room() {
 
 void Server::on_room_timer_expired(int room_id) {
     std::lock_guard<std::mutex> lock(room_mutex);
-    std::cout << "Room " << room_id << " timer expired." << std::endl;
+    std::cout << "Room " << room_id << " expired." << std::endl;
 
     // 타이머가 만료된 룸에 대해 필요한 작업 수행
-    // 1. 새로운 룸 생성
     if (current_room->id == room_id) {
         add_new_room();
     }

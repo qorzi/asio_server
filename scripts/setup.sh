@@ -24,7 +24,17 @@ else
     echo "CMake가 이미 설치되어 있습니다."
 fi
 
-# 3. 프로젝트 디렉토리 정리
+# 3. Google Test 설치
+echo "Google Test 설치 확인 중..."
+if ! dpkg -l | grep -q libgtest-dev; then
+    echo "Google Test를 설치합니다."
+    sudo apt update
+    sudo apt install -y libgtest-dev
+else
+    echo "Google Test가 이미 설치되어 있습니다."
+fi
+
+# 4. 프로젝트 디렉토리 정리
 echo "빌드 폴더를 정리합니다..."
 rm -rf build
 mkdir build

@@ -37,3 +37,7 @@ add_executable(asio_server ${SOURCES})
 
 # Boost, pthread, nlohmann/json 링크
 target_link_libraries(asio_server PRIVATE ${Boost_LIBRARIES} pthread nlohmann_json::nlohmann_json)
+
+# 테스트 추가
+enable_testing()
+add_subdirectory(tests)
