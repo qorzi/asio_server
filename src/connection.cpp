@@ -24,20 +24,27 @@ void Connection::read_header() {
         [this, self, header_buffer](const boost::system::error_code& ec, std::size_t bytes_transferred) {
             if (!ec && bytes_transferred == sizeof(Header)) {
                 try {
+                    // 헤더 파싱
                     Header header = parse_header(*header_buffer);
-                    read_body(header); // 헤더가 성공적으로 읽힌 경우, 바디 읽기 시작
+
+                    // 바디 읽기 시작
+                    read_body(header);
                 } catch (const std::exception& e) {
+                    // 예외 발생 시 이벤트로 처리
                     enqueue_callback_(Event{
-                        EventType::ERROR,
-                        self,
+                        EventType::ERROR,           // 에러 이벤트 타입
+                        self,                       // 연결된 객체 (weak_ptr로 전달)
+                        RequestType::UNKNOWN,       // 에러 시 RequestType은 UNKNOWN
                         std::vector<char>(e.what(), e.what() + std::strlen(e.what()))
                     });
                 }
             } else {
+                // 헤더 읽기 실패 시 이벤트로 처리
                 std::string error_message = ec ? ec.message() : "Unknown error while reading header.";
                 enqueue_callback_(Event{
-                    EventType::ERROR,
-                    self,
+                    EventType::ERROR,           // 에러 이벤트 타입
+                    self,                       // 연결된 객체 (weak_ptr로 전달)
+                    RequestType::UNKNOWN,       // 에러 시 RequestType은 UNKNOWN
                     std::vector<char>(error_message.begin(), error_message.end())
                 });
             }
@@ -72,7 +79,7 @@ void Connection::continue_body_read(std::shared_ptr<std::vector<char>> body_buff
                 } else {
                     // 모든 데이터를 읽었다면, READ 이벤트 등록
                     Event ev;
-                    ev.event_type = EventType::READ;
+                    ev.type = EventType::READ;
                     ev.connection = self;
                     ev.request_type = header.type;
                     ev.data = *body_buffer;
@@ -101,26 +108,65 @@ void Connection::async_write(const std::string& data) {
         });
 }
 
-void Connection::onRead(const std::vector<char>& data, RequestType type) {
-    std::string message(data.begin(), data.end());
-    std::cout << "Received data: " << message << std::endl;
-    
+void Connection::onRead(const std::vector<char>& data, RequestType type) { 
     try {
+        std::string message(data.begin(), data.end());
+        std::cout << "Received data: " << message << std::endl;
+
+        // json 데이터 가정(필수수)
+        // {
+        //     "player_id": "12345",
+        //     "player_name": "Alice"
+        // }
+
         // JSON 파싱
         json parsed_data = json::parse(data);
-
-        // std::string body  = parsed_data["something"].get<std::string>();
+        // 클라이언트에서 보낸 데이터에서 플레이어 정보 추출
+        std::string player_id = parsed_data["player_id"].get<std::string>();
+        std::string player_name = parsed_data["player_name"].get<std::string>();
 
         // 요청 타입에 따라 분기 처리
         switch (type) {
         case RequestType::IN:
         {
-            // 스레드 풀에 작업 등록 (예시: “게임 접속 처리”)
-            std::string task_info = "게임에 접속 요청 (body: " + body + ")";
-            thread_pool_.enqueue_task(task_info);
+            // 서버 싱글톤 인스턴스 가져오기
+            Server& server = Server::getInstance();
+            
+            // 작업을 람다 함수로 정의
+            thread_pool_.enqueue_task([player_id, player_name, &server]() {
+                // 새로운 플레이어 객체 생성
+                auto player = std::make_shared<Player>(player_id, player_name);
 
-            // 필요하면 응답 전송
-            // async_write(...);
+                // 룸에 플레이어 추가
+                server.add_player_to_room(player);
+
+                // 플레이어에게 룸 정보 전송
+                auto room = player->room; // 플레이어가 속한 룸
+                if (room) {
+                    json room_info;
+                    room_info["room_id"] = room->id;
+                    room_info["players"] = json::array();
+                    for (const auto& p : room->players) {
+                        room_info["players"].push_back({{"id", p->id}});
+                    }
+
+                    player->send_message(room_info.dump());
+                }
+
+                // 다른 플레이어들에게 새로운 플레이어 정보 브로드캐스트
+                if (room) {
+                    json new_player_info = {
+                        {"id", player->id},
+                        {"name", player_name}
+                    };
+
+                    for (const auto& p : room->players) {
+                        if (p->id != player->id) { // 자신 제외
+                            p->send_message(new_player_info.dump());
+                        }
+                    }
+                }
+            });
 
             break;
         }

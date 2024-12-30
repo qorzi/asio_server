@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <memory>
 #include <cstdlib>
+#include <algorithm>
 
 struct Portal {
     Point position;                  // 포탈 위치
