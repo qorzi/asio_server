@@ -42,3 +42,7 @@ void Room::remove_player(std::shared_ptr<Player> player) {
 bool Room::is_full() const {
     return players.size() >= 30;
 }
+
+const std::vector<std::shared_ptr<Player>>& Room::get_players() const {
+    return players;
+}

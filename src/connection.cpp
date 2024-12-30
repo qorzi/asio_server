@@ -1,4 +1,5 @@
 #include "connection.hpp"
+#include "server.hpp"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -146,7 +147,7 @@ void Connection::onRead(const std::vector<char>& data, RequestType type) {
                     json room_info;
                     room_info["room_id"] = room->id;
                     room_info["players"] = json::array();
-                    for (const auto& p : room->players) {
+                    for (const auto& p : room->get_players()) {
                         room_info["players"].push_back({{"id", p->id}});
                     }
 
@@ -160,7 +161,7 @@ void Connection::onRead(const std::vector<char>& data, RequestType type) {
                         {"name", player_name}
                     };
 
-                    for (const auto& p : room->players) {
+                    for (const auto& p : room->get_players()) {
                         if (p->id != player->id) { // 자신 제외
                             p->send_message(new_player_info.dump());
                         }

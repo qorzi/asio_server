@@ -33,7 +33,7 @@ void Server::add_player_to_room(std::shared_ptr<Player> player) {
         current_room->add_player(player);
     }
 
-    if (current_room->players.size() == 1 && !room_timer_active.load()) {
+    if (current_room->get_players().size() == 1 && !room_timer_active.load()) {
         room_timer_active.store(true);
         lock.unlock(); // 타이머 시작 시 뮤텍스 해제
         start_room_timer();
@@ -46,7 +46,7 @@ void Server::start_room_timer() {
         std::this_thread::sleep_for(std::chrono::seconds(30));
 
         std::unique_lock<std::mutex> lock(room_mutex);
-        if (current_room && current_room->players.size() < 30) {
+        if (current_room && current_room->get_players().size() < 30) {
             std::cout << "Room " << current_room->id << " is not full. Creating a new room." << std::endl;
             current_room = std::make_shared<Room>(rooms.size());
             rooms.push_back(current_room);
@@ -60,7 +60,7 @@ void Server::broadcast_to_room(int room_id, const std::string& message) {
     std::unique_lock<std::mutex> lock(room_mutex);
     if (room_id >= 0 && room_id < rooms.size()) {
         auto& room = rooms[room_id];
-        for (const auto& player : room->players) {
+        for (const auto& player : room->get_players()) {
             // 각 플레이어에게 메시지를 전송
             player->send_message(message);
         }
