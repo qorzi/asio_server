@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 # Boost 라이브러리 사용 설정
 find_package(Boost REQUIRED COMPONENTS system)
 
-include_directories(${Boost_INCLUDE_DIRS} include)
+include_directories(${Boost_INCLUDE_DIRS} src)
 
 # nlohmann/json 추가
 include(FetchContent)
