@@ -1,7 +1,9 @@
 #include "room.hpp"
 #include "player.hpp"
 
-Room::Room(int id) : id(id) {}
+Room::Room(int id) : id(id) {
+    initialize_maps(); // 맵 초기화 호출출
+}
 
 void Room::initialize_maps() {
     // 맵 생성
