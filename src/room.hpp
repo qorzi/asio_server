@@ -21,9 +21,9 @@ public:
     void remove_player(std::shared_ptr<Player> player);                      // 클라이언트 제거
     const std::vector<std::shared_ptr<Player>>& get_players() const;         // 플레이어 정보 반환
 
-    void start_timer(std::function<void(int)> on_timer_expired, 
-                    int wait_time_seconds = 30, 
-                    int check_interval_seconds = 1);                         // 타이머 실행
+    void start_timer(std::function<void(int)> on_timer_expired,              // 타이머 실행
+                    int wait_time_ms = 30000,  // 30초 (기본값)
+                    int check_interval_ms = 1000); // 1초 (기본값)
     void stop_timer();                                                       // 타이머 종료
     const bool is_timer_active() const;                                      // 타이머 활성화 상태태
 

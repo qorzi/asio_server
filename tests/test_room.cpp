@@ -43,21 +43,21 @@ TEST(RoomTest, CreateNewRoomWhenFull) {
     EXPECT_EQ(current_room->get_players()[0]->id, "player31"); // 새로 추가된 플레이어 확인
 }
 
-// 플레이어가 추가된 상태에서 타이머가 3초 후 만료되는지 확인
-TEST(RoomTest, TimerExpiresAfter3Seconds) {
+// 플레이어가 추가된 상태에서 타이머가 30ms 후 만료되는지 확인
+TEST(RoomTest, TimerExpiresAfter30ms) {
     auto room = std::make_shared<Room>(1);
 
     bool expired = false;
     room->start_timer([&expired](int room_id) {
         expired = true;
-    }, 3); // 3초 후 타이머 만료
+    }, 30, 10); // 30ms 후 타이머 만료
 
     // 플레이어 추가
     auto player1 = std::make_shared<Player>("1", "Alice");
     room->add_player(player1);
 
-    // 4초 대기 후 타이머 만료 확인
-    std::this_thread::sleep_for(std::chrono::seconds(4));
+    // 40ms 대기 후 타이머 만료 확인
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
     EXPECT_TRUE(expired);                  // 타이머가 만료되었는지 확인
     EXPECT_FALSE(room->is_timer_active()); // 타이머 비활성화 확인
 }
@@ -69,7 +69,7 @@ TEST(RoomTest, TimerExpiresWhenNoPlayers) {
     bool expired = false;
     room->start_timer([&expired](int room_id) {
         expired = true;
-    }, 3, 1); // 기본 3초 대기, 1초 간격으로 상태 확인
+    }, 30, 10); // 기본 30ms 대기, 10ms 간격으로 상태 확인
 
     // 플레이어 추가 후 제거
     auto player1 = std::make_shared<Player>("1", "Alice");
@@ -77,7 +77,7 @@ TEST(RoomTest, TimerExpiresWhenNoPlayers) {
     room->remove_player(player1);
 
     // 플레이어가 없는 상태에서 만료 확인
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
     EXPECT_TRUE(expired);                  // 타이머가 만료되었는지 확인
     EXPECT_FALSE(room->is_timer_active()); // 타이머 비활성화 확인
 }
@@ -89,14 +89,14 @@ TEST(RoomTest, TimerStopsWhenForced) {
     bool expired = false;
     room->start_timer([&expired](int room_id) {
         expired = true;
-    }, 3, 1); // 기본 3초 대기, 1초 간격으로 상태 확인
+    }, 30, 10); // 기본 30ms 대기, 10ms 간격으로 상태 확인
 
     // 플레이어 추가 후 타이머 강제 종료
     auto player1 = std::make_shared<Player>("1", "Alice");
     room->add_player(player1);
     room->stop_timer();
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
 
     EXPECT_FALSE(expired);                 // 만료 이벤트가 발생하지 않아야 함
     EXPECT_FALSE(room->is_timer_active()); // 타이머 비활성화 확인
@@ -109,7 +109,7 @@ TEST(RoomTest, TimerResumesWhenPlayerAdded) {
     bool expired = false;
     room->start_timer([&expired](int room_id) {
         expired = true;
-    }, 3, 1); // 기본 3초 대기, 1초 간격으로 상태 확인
+    }, 30, 10); // 기본 30ms 대기, 10ms 간격으로 상태 확인
 
     // 플레이어 추가
     auto player1 = std::make_shared<Player>("1", "Alice");
@@ -118,7 +118,7 @@ TEST(RoomTest, TimerResumesWhenPlayerAdded) {
 
     // 타이머 만료 전에 플레이어 제거
     room->remove_player(player1);
-    std::this_thread::sleep_for(std::chrono::seconds(1)); // 1초 대기
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
     EXPECT_FALSE(room->is_timer_active()); // 타이머 비활성화 확인
     EXPECT_TRUE(expired); // 만료 콜백 활성화 확인
 
