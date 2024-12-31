@@ -47,9 +47,14 @@ bool Room::add_player(std::shared_ptr<Player> player) {
     return true;
 }
 
-void Room::remove_player(std::shared_ptr<Player> player) {
+bool Room::remove_player(std::shared_ptr<Player> player) {
     std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금
-    players.erase(std::remove(players.begin(), players.end(), player), players.end());
+    auto it = std::find(players.begin(), players.end(), player);
+    if (it != players.end()) {
+        players.erase(it);
+        return true; // 제거 성공
+    }
+    return false; // 이미 제거된 상태
 }
 
 bool Room::is_full() const {

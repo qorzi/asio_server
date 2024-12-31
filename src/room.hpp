@@ -18,7 +18,7 @@ public:
     explicit Room(int id);
     void initialize_maps();                                                  // 맵과 포탈 초기화
     bool add_player(std::shared_ptr<Player> player);                         // 클라이언트 추가
-    void remove_player(std::shared_ptr<Player> player);                      // 클라이언트 제거
+    bool remove_player(std::shared_ptr<Player> player);                      // 클라이언트 제거
     const std::vector<std::shared_ptr<Player>>& get_players() const;         // 플레이어 정보 반환
 
     void start_timer(std::function<void(int)> on_timer_expired,              // 타이머 실행

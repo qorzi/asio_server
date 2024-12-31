@@ -52,6 +52,15 @@ void Connection::read_chunk() {
                         std::vector<char>(e.what(), e.what() + std::strlen(e.what()))
                     });
                 }
+            } else if (ec == boost::asio::error::eof || ec == boost::asio::error::connection_reset) {
+                // 연결 종료 또는 소켓 클로즈 감지
+                std::cout << "[DEBUG] Connection closed by client.\n";
+                enqueue_callback_(Event{
+                    EventType::CLOSE,
+                    self,
+                    RequestType::UNKNOWN,
+                    {}
+                });
             } else {
                 std::cerr << "[ERROR] Failed to read 8 bytes. Error: " 
                           << (ec ? ec.message() : "Unknown error") << std::endl;
@@ -284,10 +293,44 @@ void Connection::onRead(const std::vector<char>& data, RequestType type) {
         }
         case RequestType::OUT:
         {
-            // OUT 로직
+            thread_pool_.enqueue_task([this, data]() {
+
+                // 서버 싱글톤 인스턴스 가져오기
+                Server& server = Server::getInstance();
+                ConnectionManager& connection_manager = server.get_connection_manager();
+
+                auto player = connection_manager.get_player_for_connection(shared_from_this());
+                auto room = player->room;
+
+                if (room) {
+                    // 룸에서 플레이어 제거
+                    bool removed = room->remove_player(player);
+
+                    if (removed) {
+                        // 변경된 룸 정보를 브로드캐스트
+                        json room_info;
+                        room_info["room_id"] = room->id;
+                        room_info["players"] = json::array();
+
+                        for (const auto& p : room->get_players()) {
+                            room_info["players"].push_back({
+                                {"id", p->id},
+                                {"name", p->name}
+                            });
+                        }
+
+                        std::string response = create_response_string(RequestType::OUT, room_info.dump());
+                        room->broadcast_message(response);
+                    } else {
+                        std::cout << "[WARNING] Player is already removed from the room.\n";
+                    }
+                }
+
+            });
+
             break;
         }
-        // 기타타
+        // 기타
         default:
             std::cout << "Unknown request type from header.\n";
             break;
@@ -306,6 +349,17 @@ void Connection::onWrite(const std::vector<char>& data) {
 
 void Connection::onClose() {
     std::cout << "Connection closed." << std::endl;
+    if (!socket_.is_open()) {
+        std::cout << "[INFO] Socket already closed.\n";
+        return;
+    }
+
+    Event ev;
+    ev.type = EventType::READ;
+    ev.connection = shared_from_this();
+    ev.request_type = RequestType::OUT;
+
+    enqueue_callback_(ev); // OUT 이벤트 등록록
 
     // 소켓 닫기
     boost::system::error_code ec;
