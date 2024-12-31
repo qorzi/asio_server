@@ -25,7 +25,9 @@ public:
                     int wait_time_ms = 30000,  // 30초 (기본값)
                     int check_interval_ms = 1000); // 1초 (기본값)
     void stop_timer();                                                       // 타이머 종료
-    const bool is_timer_active() const;                                      // 타이머 활성화 상태태
+    const bool is_timer_active() const;                                      // 타이머 활성화 상태
+
+    void broadcast_message(const std::string& message);                      // 메시지 브로드캐스트 함수(전체에게 정보 전달달)
 
 private:
     std::vector<std::shared_ptr<Map>> maps;                                  // 전체 맵 정보

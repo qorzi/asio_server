@@ -122,3 +122,12 @@ void Room::stop_timer() {
 const bool Room::is_timer_active() const {
     return timer_active.load(std::memory_order_relaxed); // 원자적 읽기
 }
+
+
+void Room::broadcast_message(const std::string& message) {
+    std::lock_guard<std::mutex> lock(mutex_); // 플레이어 리스트 보호
+
+    for (const auto& player : players) {
+        player->send_message(message); // 메시지 전송
+    }
+}

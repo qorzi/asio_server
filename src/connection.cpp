@@ -141,32 +141,38 @@ void Connection::onRead(const std::vector<char>& data, RequestType type) {
                 // 룸에 플레이어 추가
                 server.add_player_to_room(player);
 
+                // 방에 참가한 모든 플레이어에게 전달될 데이터 예시
+                // {
+                //     "room_id": 1,
+                //     "players": [
+                //         {
+                //             "id": "player1",
+                //             "name": "Alice"
+                //         },
+                //         {
+                //             "id": "player2",
+                //             "name": "Bob"
+                //         }
+                //     ]
+                // }
+
                 // 플레이어에게 룸 정보 전송
                 auto room = player->room; // 플레이어가 속한 룸
                 if (room) {
                     json room_info;
                     room_info["room_id"] = room->id;
                     room_info["players"] = json::array();
-                    for (const auto& p : room->get_players()) {
-                        room_info["players"].push_back({{"id", p->id}});
-                    }
-
-                    player->send_message(room_info.dump());
-                }
-
-                // 다른 플레이어들에게 새로운 플레이어 정보 브로드캐스트
-                if (room) {
-                    json new_player_info = {
-                        {"id", player->id},
-                        {"name", player_name}
-                    };
 
                     for (const auto& p : room->get_players()) {
-                        if (p->id != player->id) { // 자신 제외
-                            p->send_message(new_player_info.dump());
-                        }
+                        room_info["players"].push_back({
+                            {"id", p->id},    // 플레이어 ID
+                            {"name", p->name} // 플레이어 이름
+                        });
                     }
+
+                    room->broadcast_message(room_info.dump()); // 방 전체에 룸 정보 브로드캐스트
                 }
+
             });
 
             break;

@@ -9,7 +9,7 @@
 class Player {
 public:
     std::string id;                   // 플레이어 ID
-    std::string name;                 // 플레이어 이름름
+    std::string name;                 // 플레이어 이름
     Point position;                   // 현재 위치
     std::shared_ptr<Room> room;       // 연결된 룸
     std::shared_ptr<Map> current_map; // 현재 맵
