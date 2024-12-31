@@ -57,6 +57,17 @@ void Server::add_player_to_room(std::shared_ptr<Player> player) {
     }
 }
 
+void Server::shutdown() {
+    std::lock_guard<std::mutex> lock(room_mutex);
+
+    // 모든 룸의 타이머 정지
+    for (const auto& room : rooms) {
+        room->stop_timer();
+    }
+
+    std::cout << "[Server::shutdown] All rooms and connections are stopped." << std::endl;
+}
+
 std::shared_ptr<Room> Server::get_current_room() const {
     return current_room;
 }

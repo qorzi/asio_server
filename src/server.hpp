@@ -32,6 +32,7 @@ private:
 
     void add_new_room();                                    // 룸 생성 함수
     void on_room_timer_expired(int room_id);                // 타미어 만료 콜백
+    void shutdown();                                        // 모든 룸 타이머 종료
 };
 
 #endif // SERVER_HPP
