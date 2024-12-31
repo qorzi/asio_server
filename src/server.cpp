@@ -21,7 +21,6 @@ Server::~Server() {
 // 게임 초기화
 void Server::initialize_game() {
     std::cout << "[Server::initialize_game] Initializing game and creating first room." << std::endl;
-    add_new_room(); // 첫 번째 룸 생성
 }
 
 void Server::add_new_room() {
@@ -42,7 +41,7 @@ void Server::on_room_timer_expired(int room_id) {
 
     // 타이머가 만료된 룸에 대해 필요한 작업 수행
     if (current_room->id == room_id) {
-        add_new_room();
+        current_room = nullptr;
     }
 }
 
@@ -50,6 +49,12 @@ void Server::on_room_timer_expired(int room_id) {
 void Server::add_player_to_room(std::shared_ptr<Player> player) {
     std::unique_lock<std::mutex> lock(room_mutex);
 
+    // current_room이 없는 경우 새 룸 생성
+    if (!current_room) {
+        add_new_room(); // 첫 번째 룸 생성
+    }
+
+    // current_room에 플레이어 추가 시도
     if (!current_room->add_player(player)) {
         // 현재 룸이 가득 찬 경우 새 룸 생성
         add_new_room();
