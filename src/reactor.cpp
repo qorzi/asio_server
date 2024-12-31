@@ -37,8 +37,8 @@ void Reactor::event_loop() {
         // 객체 상태 확인
         if (auto connection = event.connection.lock()) {
             switch (event.type) {
-                case EventType::READ:
-                    connection->onRead(event.data, event.request_type);
+                case EventType::REQUEST:
+                    connection->onEvent(event.data, event.request_type);
                     break;
                 case EventType::WRITE:
                     connection->onWrite(event.data);

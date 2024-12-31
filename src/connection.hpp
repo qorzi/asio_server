@@ -17,7 +17,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
 public:
     explicit Connection(tcp::socket socket, ThreadPool& thread_pool);
 
-    void onRead(const std::vector<char>& data, RequestType headerType);
+    void onEvent(const std::vector<char>& data, RequestType headerType);
     void onWrite(const std::vector<char>& data);
     void onClose();
     void onError(const std::vector<char>& data);

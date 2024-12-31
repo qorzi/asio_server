@@ -10,7 +10,7 @@ Connection::Connection(tcp::socket socket, ThreadPool& thread_pool)
 
 void Connection::start_monitoring(std::function<void(const Event&)> enqueue_callback) {
     enqueue_callback_ = std::move(enqueue_callback);
-    async_read(); // READ 이벤트 감지 시작
+    async_read(); // REQUEST 이벤트 감지 시작
 }
 
 void Connection::async_read() {
@@ -150,7 +150,7 @@ void Connection::read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer,
                     // 본문 읽기 완료
                     std::cout << "[DEBUG] Body read complete. Removing padding.\n";
                     Event ev;
-                    ev.type = EventType::READ;
+                    ev.type = EventType::REQUEST;
                     ev.connection = self;
                     ev.request_type = header.type;
 
@@ -217,7 +217,7 @@ std::string Connection::create_response_string(RequestType type, const std::stri
     return response; // 결합된 헤더 + 패딩된 본문 스트링 반환
 }
 
-void Connection::onRead(const std::vector<char>& data, RequestType type) { 
+void Connection::onEvent(const std::vector<char>& data, RequestType type) { 
     try {
         std::string message(data.begin(), data.end());
         std::cout << "Received data: " << message << std::endl;
@@ -355,7 +355,7 @@ void Connection::onClose() {
     }
 
     Event ev;
-    ev.type = EventType::READ;
+    ev.type = EventType::REQUEST;
     ev.connection = shared_from_this();
     ev.request_type = RequestType::OUT;
 
