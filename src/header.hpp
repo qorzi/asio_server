@@ -15,9 +15,12 @@ enum class RequestType : uint8_t {
 };
 
 // 헤더 구조체 정의
+#pragma pack(push, 1)
 struct Header {
-    RequestType type;       // 요청 타입
-    uint32_t body_length;   // 본문 길이
+    RequestType type;       // 1 byte
+    uint32_t body_length;   // 4 bytes
+    char padding[3];        // 패딩 추가
 };
+#pragma pack(pop)
 
 #endif // HEADER_HPP

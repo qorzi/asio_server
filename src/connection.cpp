@@ -14,82 +14,147 @@ void Connection::start_monitoring(std::function<void(const Event&)> enqueue_call
 }
 
 void Connection::async_read() {
-    read_header(); // 먼저 헤더 읽기 시작
+    read_chunk(); // 8바이트 단위 읽기 시작
 }
 
-void Connection::read_header() {
-    auto header_buffer = std::make_shared<std::vector<char>>(sizeof(Header));
+void Connection::read_chunk() {
+    auto chunk_buffer = std::make_shared<std::vector<char>>(8); // 항상 8바이트씩 읽기
     auto self = shared_from_this();
 
-    boost::asio::async_read(socket_, boost::asio::buffer(*header_buffer),
-        [this, self, header_buffer](const boost::system::error_code& ec, std::size_t bytes_transferred) {
-            if (!ec && bytes_transferred == sizeof(Header)) {
-                try {
-                    // 헤더 파싱
-                    Header header = parse_header(*header_buffer);
+    std::cout << "[DEBUG] Starting to read a chunk of 8 bytes.\n";
 
-                    // 바디 읽기 시작
-                    read_body(header);
+    boost::asio::async_read(socket_, boost::asio::buffer(*chunk_buffer),
+        [this, self, chunk_buffer](const boost::system::error_code& ec, std::size_t bytes_transferred) {
+            if (!ec && bytes_transferred == 8) {
+                std::cout << "[DEBUG] Successfully read 8 bytes. Data: ";
+                for (char c : *chunk_buffer) {
+                    std::cout << std::hex << static_cast<int>(c & 0xFF) << " ";
+                }
+                std::cout << std::endl;
+
+                try {
+                    if (is_header(*chunk_buffer)) {
+                        std::cout << "[DEBUG] Chunk identified as header.\n";
+                        Header header = parse_header(*chunk_buffer);
+                        std::cout << "[DEBUG] Parsed Header: type=" << static_cast<int>(header.type)
+                                  << ", body_length=" << header.body_length << "\n";
+
+                        read_body(header);
+                    } else {
+                        throw std::runtime_error("Invalid header format");
+                    }
                 } catch (const std::exception& e) {
-                    // 예외 발생 시 이벤트로 처리
+                    std::cerr << "[ERROR] Exception while parsing header: " << e.what() << std::endl;
                     enqueue_callback_(Event{
-                        EventType::ERROR,           // 에러 이벤트 타입
-                        self,                       // 연결된 객체 (weak_ptr로 전달)
-                        RequestType::UNKNOWN,       // 에러 시 RequestType은 UNKNOWN
+                        EventType::ERROR,
+                        self,
+                        RequestType::UNKNOWN,
                         std::vector<char>(e.what(), e.what() + std::strlen(e.what()))
                     });
                 }
             } else {
-                // 헤더 읽기 실패 시 이벤트로 처리
-                std::string error_message = ec ? ec.message() : "Unknown error while reading header.";
+                std::cerr << "[ERROR] Failed to read 8 bytes. Error: " 
+                          << (ec ? ec.message() : "Unknown error") << std::endl;
                 enqueue_callback_(Event{
-                    EventType::ERROR,           // 에러 이벤트 타입
-                    self,                       // 연결된 객체 (weak_ptr로 전달)
-                    RequestType::UNKNOWN,       // 에러 시 RequestType은 UNKNOWN
-                    std::vector<char>(error_message.begin(), error_message.end())
+                    EventType::ERROR,
+                    self,
+                    RequestType::UNKNOWN,
+                    {}
                 });
             }
         });
 }
 
+bool Connection::is_header(const std::vector<char>& buffer) {
+    if (buffer.size() < 8) {
+        std::cout << "[DEBUG] Buffer size is too small to be a header.\n";
+        return false;
+    }
+
+    RequestType type = static_cast<RequestType>(buffer[0]);
+    uint32_t body_length = 0;
+
+    for (int i = 0; i < 4; ++i) {
+        body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * 8));
+    }
+
+    std::cout << "[DEBUG] Checking if buffer is header. Type=" << static_cast<int>(type)
+              << ", Body length=" << body_length << "\n";
+
+    return (type == RequestType::IN || type == RequestType::OUT) && body_length > 0;
+}
+
 Header Connection::parse_header(const std::vector<char>& buffer) {
-    if (buffer.size() < sizeof(Header)) {
+    if (buffer.size() < 8) {
         throw std::invalid_argument("Buffer size is too small to parse Header.");
     }
 
     Header header;
-    std::memcpy(&header, buffer.data(), sizeof(Header));
+    header.type = static_cast<RequestType>(buffer[0]);
+    header.body_length = 0;
+
+    // 리틀 엔디언으로 body_length 파싱
+    for (int i = 0; i < 4; ++i) {
+        header.body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * 8));
+    }
+
+    // 디버깅 출력
+    std::cout << "[DEBUG] Parsed Header: Type=" << static_cast<int>(header.type)
+              << ", Body Length=" << header.body_length << std::endl;
+
     return header;
 }
 
 void Connection::read_body(const Header& header) {
-    auto body_buffer = std::make_shared<std::vector<char>>(header.body_length);
-    continue_body_read(body_buffer, header, 0);
+    if (header.body_length > 10 * 1024 * 1024) { // 최대 크기 10MB
+        std::cerr << "[ERROR] Body length exceeds maximum allowed size: " << header.body_length << " bytes.\n";
+        enqueue_callback_(Event{EventType::ERROR, shared_from_this(), RequestType::UNKNOWN, {}});
+        return;
+    }
+
+    size_t padded_size = ((header.body_length + 7) / 8) * 8; // 패딩 포함 크기 (8의 배수)
+    std::cout << "[DEBUG] Starting to read body. Padded size=" << padded_size 
+              << ", Actual body length=" << header.body_length << "\n";
+
+    auto body_buffer = std::make_shared<std::vector<char>>(padded_size);
+    read_body_chunk(body_buffer, header, 0);
 }
 
-void Connection::continue_body_read(std::shared_ptr<std::vector<char>> body_buffer, const Header& header, std::size_t bytes_read) {
-    auto self = shared_from_this();
 
-    boost::asio::async_read(socket_, boost::asio::buffer(body_buffer->data() + bytes_read, header.body_length - bytes_read),
+void Connection::read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer, const Header& header, std::size_t bytes_read) {
+    auto self = shared_from_this();
+    size_t remaining = body_buffer->size() - bytes_read;
+
+    std::cout << "[DEBUG] Reading body chunk. Bytes read so far=" << bytes_read 
+              << ", Remaining=" << remaining << "\n";
+
+    boost::asio::async_read(socket_, boost::asio::buffer(body_buffer->data() + bytes_read, remaining),
         [this, self, body_buffer, header, bytes_read](const boost::system::error_code& ec, std::size_t bytes_transferred) {
             if (!ec) {
                 std::size_t total_bytes_read = bytes_read + bytes_transferred;
-                if (total_bytes_read < header.body_length) {
-                    // 다 읽지 못했다면, 계속 읽음
-                    continue_body_read(body_buffer, header, total_bytes_read);
+                std::cout << "[DEBUG] Successfully read body chunk. Total bytes read=" << total_bytes_read << "\n";
+
+                if (total_bytes_read < body_buffer->size()) {
+                    // 계속 읽음
+                    read_body_chunk(body_buffer, header, total_bytes_read);
                 } else {
-                    // 모든 데이터를 읽었다면, READ 이벤트 등록
+                    // 본문 읽기 완료
+                    std::cout << "[DEBUG] Body read complete. Removing padding.\n";
                     Event ev;
                     ev.type = EventType::READ;
                     ev.connection = self;
                     ev.request_type = header.type;
-                    ev.data = *body_buffer;
 
+                    // 패딩 제거
+                    ev.data = std::vector<char>(body_buffer->begin(), body_buffer->begin() + header.body_length);
                     enqueue_callback_(ev);
 
-                    async_read(); // 다음 수신 대기
+                    // 다음 수신 대기
+                    async_read();
                 }
             } else {
+                std::cerr << "[ERROR] Error while reading body chunk. Error: " 
+                          << ec.message() << "\n";
                 enqueue_callback_(Event{EventType::CLOSE, self, {}});
             }
         });
@@ -107,6 +172,40 @@ void Connection::async_write(const std::string& data) {
                 enqueue_callback_(Event{EventType::CLOSE, self, {}});
             }
         });
+}
+
+std::vector<char> serialize_header(const Header& header) {
+    std::vector<char> buffer(8);
+    std::memcpy(buffer.data(), &header, sizeof(Header));
+    std::cout << "[DEBUG] Serialized Header: ";
+    for (char c : buffer) {
+        std::cout << std::hex << static_cast<int>(c & 0xFF) << " ";
+    }
+    std::cout << std::endl;
+    return buffer;
+}
+
+std::string Connection::create_response_string(RequestType type, const std::string& body) {
+    // 헤더 생성
+    Header header{type, static_cast<uint32_t>(body.size())};
+
+    std::cout << "-----Size of Header: " << sizeof(Header) << std::endl;
+    serialize_header(header);
+
+    // 헤더를 바이너리 데이터로 변환
+    std::vector<char> header_buffer(sizeof(Header));
+    std::memcpy(header_buffer.data(), &header, sizeof(Header));
+
+    // 본문 데이터 패딩 처리 (8바이트 배수로 맞춤)
+    size_t padded_body_length = ((body.size() + 7) / 8) * 8; // 8의 배수로 맞춤
+    std::string padded_body = body;
+    padded_body.resize(padded_body_length, '\0'); // '\0'으로 패딩 추가
+
+    // 헤더와 패딩된 본문 결합
+    std::string response(header_buffer.begin(), header_buffer.end());
+    response += padded_body;
+
+    return response; // 결합된 헤더 + 패딩된 본문 스트링 반환
 }
 
 void Connection::onRead(const std::vector<char>& data, RequestType type) { 
@@ -140,6 +239,7 @@ void Connection::onRead(const std::vector<char>& data, RequestType type) {
                 Server& server = Server::getInstance();
                 // 룸에 플레이어 추가
                 server.add_player_to_room(player);
+
                 // connection_manager에 관계 등록
                 ConnectionManager& cm = server.get_connection_manager();
                 cm.register_connection(player, shared_from_this());
@@ -173,7 +273,9 @@ void Connection::onRead(const std::vector<char>& data, RequestType type) {
                         });
                     }
 
-                    room->broadcast_message(room_info.dump()); // 방 전체에 룸 정보 브로드캐스트
+                    std::string response = create_response_string(RequestType::IN, room_info.dump());
+
+                    room->broadcast_message(response); // 방 전체에 룸 정보 브로드캐스트
                 }
 
             });

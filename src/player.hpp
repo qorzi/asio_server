@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-class Player {
+class Player : public std::enable_shared_from_this<Player> {
 public:
     std::string id;                   // 플레이어 ID
     std::string name;                 // 플레이어 이름

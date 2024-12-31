@@ -23,16 +23,16 @@ public:
     void onError(const std::vector<char>& data);
 
     void start_monitoring(std::function<void(const Event&)> enqueue_callback);
+    void async_write(const std::string& response);
 
 private:
     void async_read();
-    void read_header();
+    void read_chunk();
+    bool is_header(const std::vector<char>& buffer);
     static Header parse_header(const std::vector<char>& header);
     void read_body(const Header& header);
-    void continue_body_read(std::shared_ptr<std::vector<char>> body_buffer,
-                            const Header& header,
-                            std::size_t bytes_read);
-    void async_write(const std::string& response);
+    void read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer, const Header& header, std::size_t bytes_read);
+    std::string create_response_string(RequestType type, const std::string& body);
 
     tcp::socket socket_;
     std::function<void(const Event&)> enqueue_callback_;
