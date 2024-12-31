@@ -114,32 +114,35 @@ void Connection::onRead(const std::vector<char>& data, RequestType type) {
         std::string message(data.begin(), data.end());
         std::cout << "Received data: " << message << std::endl;
 
-        // json 데이터 가정(필수수)
-        // {
-        //     "player_id": "12345",
-        //     "player_name": "Alice"
-        // }
-
-        // JSON 파싱
-        json parsed_data = json::parse(data);
-        // 클라이언트에서 보낸 데이터에서 플레이어 정보 추출
-        std::string player_id = parsed_data["player_id"].get<std::string>();
-        std::string player_name = parsed_data["player_name"].get<std::string>();
-
         // 요청 타입에 따라 분기 처리
         switch (type) {
         case RequestType::IN:
-        {
-            // 서버 싱글톤 인스턴스 가져오기
-            Server& server = Server::getInstance();
-            
+        {            
             // 작업을 람다 함수로 정의
-            thread_pool_.enqueue_task([player_id, player_name, &server]() {
+            thread_pool_.enqueue_task([this, data]() {
+
+                // json 데이터 가정(필수)
+                // {
+                //     "player_id": "12345",
+                //     "player_name": "Alice"
+                // }
+
+                // JSON 파싱
+                json parsed_data = json::parse(data);
+                // 클라이언트에서 보낸 데이터에서 플레이어 정보 추출
+                std::string player_id = parsed_data["player_id"].get<std::string>();
+                std::string player_name = parsed_data["player_name"].get<std::string>();
+                
                 // 새로운 플레이어 객체 생성
                 auto player = std::make_shared<Player>(player_id, player_name);
 
+                // 서버 싱글톤 인스턴스 가져오기
+                Server& server = Server::getInstance();
                 // 룸에 플레이어 추가
                 server.add_player_to_room(player);
+                // connection_manager에 관계 등록
+                ConnectionManager& cm = server.get_connection_manager();
+                cm.register_connection(player, shared_from_this());
 
                 // 방에 참가한 모든 플레이어에게 전달될 데이터 예시
                 // {

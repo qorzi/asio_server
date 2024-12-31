@@ -3,6 +3,7 @@
 
 #include "room.hpp"
 #include "player.hpp"
+#include "connection_manager.hpp"
 #include <vector>
 #include <memory>
 #include <mutex>
@@ -15,6 +16,7 @@ public:
     void add_player_to_room(std::shared_ptr<Player> player);// 유저를 현재 룸에 추가
     std::shared_ptr<Room> get_current_room() const;         // 현재 활성화 룸 정보 반환
 
+    ConnectionManager& get_connection_manager();            // ConnectionManager 반환
 private:
     Server();                                               // 생성자 private
     ~Server();                                              // 소멸자 private
@@ -25,6 +27,8 @@ private:
     std::shared_ptr<Room> current_room;                     // 현재 활성화된 룸
     std::vector<std::shared_ptr<Room>> rooms;               // 생성된 모든 룸
     std::mutex room_mutex;                                  // 룸 생성 및 접근을 위한 뮤텍스
+
+    ConnectionManager connection_manager_;                  // ConnectionManager 멤버 추가
 
     void add_new_room();                                    // 룸 생성 함수
     void on_room_timer_expired(int room_id);                // 타미어 만료 콜백

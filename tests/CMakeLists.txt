@@ -16,6 +16,7 @@ set(SOURCES
     ../src/thread_pool.cpp
     ../src/connection.cpp
     ../src/reactor.cpp
+    ../src/connection_manager.cpp
 )
 
 # 테스트 타겟 생성
