@@ -11,7 +11,10 @@ enum class RequestType : uint8_t {
     UNKNOWN = 0,
     JOIN = 1,
     LEFT = 2,
-    INPUT = 3
+    SET = 3,
+    START = 4,
+    PLAY = 5,
+    END = 6
 };
 
 // 헤더 구조체 정의

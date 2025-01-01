@@ -46,14 +46,30 @@ void Reactor::event_loop() {
                 switch (event.request_type) {
                 case RequestType::JOIN:
                     thread_pool_.enqueue_task([connection, event]() {
-                        EventHandler::handle_in_event(event.data, connection);
+                        EventHandler::handle_join_event(event.data, connection);
                     });
                     break;
 
                 case RequestType::LEFT:
                     thread_pool_.enqueue_task([connection, event]() {
-                        EventHandler::handle_out_event(event.data, connection);
+                        EventHandler::handle_left_event(event.data, connection);
                     });
+                    break;
+
+                case RequestType::SET:
+                    // 미구현
+                    break;
+
+                case RequestType::START:
+                    // 미구현
+                    break;
+
+                case RequestType::PLAY:
+                    // 미구현
+                    break;
+
+                case RequestType::END:
+                    // 미구현
                     break;
 
                 default:

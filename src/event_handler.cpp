@@ -44,7 +44,7 @@ std::string create_response_string(RequestType type, const std::string& body) {
 }
 
 // IN 이벤트 처리
-void EventHandler::handle_in_event(const std::vector<char>& data, const std::shared_ptr<Connection>& connection) {
+void EventHandler::handle_join_event(const std::vector<char>& data, const std::shared_ptr<Connection>& connection) {
     try {
         json parsed_data = json::parse(data);
         std::string player_id = parsed_data["player_id"].get<std::string>();
@@ -76,7 +76,7 @@ void EventHandler::handle_in_event(const std::vector<char>& data, const std::sha
 }
 
 // OUT 이벤트 처리
-void EventHandler::handle_out_event(const std::vector<char>& data, const std::shared_ptr<Connection>& connection) {
+void EventHandler::handle_left_event(const std::vector<char>& data, const std::shared_ptr<Connection>& connection) {
     try {
         Server& server = Server::getInstance();
         ConnectionManager& connection_manager = server.get_connection_manager();
