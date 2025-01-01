@@ -1,11 +1,16 @@
 #include "room.hpp"
 #include "player.hpp"
+
 #include <thread>
+#include <iostream>
 
 #define MAX_PLAYERS 30
 
 Room::Room(int id) : id(id) {
-    initialize_maps(); // 맵 초기화 호출출
+    // 방 생성시 디버그 출력
+    std::cout << "[DEBUG][Room:" << id << "] Room constructor called.\n";
+
+    initialize_maps(); // 맵 초기화 호출
 }
 
 void Room::initialize_maps() {
@@ -32,11 +37,13 @@ bool Room::add_player(std::shared_ptr<Player> player) {
 
     // 타이머가 비활성화 상태면 유저 추가 불가
     if (!timer_active.load(std::memory_order_relaxed)) {
+        std::cout << "[DEBUG][Room:" << id << "] add_player() failed: timer not active.\n";
         return false;
     }
 
     // 방이 가득 찬 경우 추가 불가
     if (is_full()) {
+        std::cout << "[DEBUG][Room:" << id << "] add_player() failed: room is full.\n";
         return false;
     }
 
@@ -46,17 +53,27 @@ bool Room::add_player(std::shared_ptr<Player> player) {
     player->current_map = maps[0]; // 첫 번째 맵으로 설정
     player->position = maps[0]->start_point;
 
+    // 디버그 메시지
+    std::cout << "[DEBUG][Room:" << id << "] Player " << player->id
+              << " added. Current player count: " << players.size() << "\n";
+
     return true;
 }
 
 bool Room::remove_player(std::shared_ptr<Player> player) {
     std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금
     auto it = std::find(players.begin(), players.end(), player);
+
     if (it != players.end()) {
         players.erase(it);
-        return true; // 제거 성공
+        // 디버그 메시지
+        std::cout << "[DEBUG][Room:" << id << "] Player " << player->id
+                  << " removed. Current player count: " << players.size() << "\n";
+        return true;
     }
-    return false; // 이미 제거된 상태
+
+    std::cout << "[DEBUG][Room:" << id << "] remove_player() failed: player not found.\n";
+    return false;
 }
 
 bool Room::is_full() const {
@@ -75,6 +92,7 @@ void Room::start_timer(std::function<void(int, bool)> on_timer_expired,
     bool expected = false;
     if (!timer_active.compare_exchange_strong(expected, true)) {
         // 다른 스레드에서 이미 실행 중
+        std::cout << "[DEBUG][Room:" << id << "] Timer already active.\n";
         return;
     }
 
@@ -85,6 +103,8 @@ void Room::start_timer(std::function<void(int, bool)> on_timer_expired,
         std::unique_lock<std::mutex> lock(mutex_);
 
         int elapsed_time_ms = 0;
+        std::cout << "[DEBUG][Room:" << id << "] Timer started. wait_time_ms=" 
+                  << wait_time_ms << ", check_interval_ms=" << check_interval_ms << "\n";
 
         while (true) {
             // `should_stop_`이 true가 되거나, 타임아웃까지 대기
@@ -94,6 +114,7 @@ void Room::start_timer(std::function<void(int, bool)> on_timer_expired,
 
             // 중지 요청이 들어오면 루프 종료
             if (should_stop_) {
+                std::cout << "[DEBUG][Room:" << id << "] Timer stopped manually.\n";
                 break;
             }
 
@@ -102,12 +123,14 @@ void Room::start_timer(std::function<void(int, bool)> on_timer_expired,
 
             // `players` 상태 확인 - 방에 플레이어가 없으면 만료 처리
             if (players.empty()) {
+                std::cout << "[DEBUG][Room:" << id << "] Timer expired: room is empty.\n";
                 on_timer_expired(id, false); // 타이머 만료 처리 - Room Removal
                 break;
             }
 
             // `players` 상태 확인 - 방에 플레이어가 가득차면 만료 처리
             if (players.size() == MAX_PLAYERS) {
+                std::cout << "[DEBUG][Room:" << id << "] Timer expired: room is full.\n";
                 on_timer_expired(id, true); // 타이머 만료 처리 - Game Start
                 start_game();
                 break;
@@ -115,6 +138,7 @@ void Room::start_timer(std::function<void(int, bool)> on_timer_expired,
 
             // 타이머 초과 시 처리
             if (elapsed_time_ms >= wait_time_ms) {
+                std::cout << "[DEBUG][Room:" << id << "] Timer expired: time limit reached.\n";
                 on_timer_expired(id, true); // 타이머 만료 처리 - Game Start
                 start_game();
                 break;
@@ -123,6 +147,8 @@ void Room::start_timer(std::function<void(int, bool)> on_timer_expired,
 
         // 타이머 비활성화
         timer_active.store(false, std::memory_order_relaxed);
+        std::cout << "[DEBUG][Room:" << id << "] Timer deactivated.\n";
+
     }).detach();
 }
 
@@ -141,6 +167,9 @@ const bool Room::is_timer_active() const {
 void Room::broadcast_message(const std::string& message) {
     std::lock_guard<std::mutex> lock(mutex_); // 플레이어 리스트 보호
 
+    std::cout << "[DEBUG][Room:" << id << "] Broadcasting message to " 
+              << players.size() << " players.\n";
+
     for (const auto& player : players) {
         player->send_message(message); // 메시지 전송
     }
@@ -150,6 +179,7 @@ void Room::start_game() {
     // 게임 실행 로직 수행
     // 1. 플레이어들을 게임 시작 대기 화면으로 이동하도록 명령 ( 플레이어가 시작 위치에서 대기하도록 )
     // 2. 5초 카운트 다운 수행 후, 게임 시작
+    std::cout << "[DEBUG][Room:" << id << "] Game started.\n";
 }
 
 void Room::update_game_state() {
