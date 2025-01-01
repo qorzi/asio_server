@@ -17,6 +17,7 @@ set(SOURCES
     ../src/connection.cpp
     ../src/reactor.cpp
     ../src/connection_manager.cpp
+    ../src/event_handler.cpp
 )
 
 # 테스트 타겟 생성

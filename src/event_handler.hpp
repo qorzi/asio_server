@@ -1,4 +1,7 @@
 #include <vector>
+#include <memory>
+
+class Connection;
 
 class EventHandler {
 public:

@@ -22,6 +22,10 @@ TEST(RoomTest, AddPlayerToRoom) {
     EXPECT_EQ(current_room->get_players().size(), 2);          // 두 명의 플레이어가 추가되었는지 확인
     EXPECT_EQ(current_room->get_players()[0]->id, "player1");  // 첫 번째 플레이어 확인
     EXPECT_EQ(current_room->get_players()[1]->id, "player2");  // 두 번째 플레이어 확인
+
+    // 플레이어 제거 및 룸 제거거
+    server.remove_player_to_room(player1);
+    server.remove_player_to_room(player2);
 }
 
 // 서버가 룸의 최대 인원을 초과하면 새로운 룸을 생성하는지 확인
