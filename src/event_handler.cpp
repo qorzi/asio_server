@@ -67,7 +67,7 @@ void EventHandler::handle_in_event(const std::vector<char>& data, const std::sha
                 });
             }
 
-            std::string response = create_response_string(RequestType::IN, room_info.dump());
+            std::string response = create_response_string(RequestType::JOIN, room_info.dump());
             room->broadcast_message(response);
         }
     } catch (const std::exception& e) {
@@ -98,7 +98,7 @@ void EventHandler::handle_out_event(const std::vector<char>& data, const std::sh
                     });
                 }
 
-                std::string response = create_response_string(RequestType::OUT, room_info.dump());
+                std::string response = create_response_string(RequestType::LEFT, room_info.dump());
                 room->broadcast_message(response);
             } else {
                 std::cout << "[WARNING] Player already removed from room.\n";

@@ -88,7 +88,7 @@ bool Connection::is_header(const std::vector<char>& buffer) {
     std::cout << "[DEBUG] Checking if buffer is header. Type=" << static_cast<int>(type)
               << ", Body length=" << body_length << "\n";
 
-    return (type == RequestType::IN || type == RequestType::OUT) && body_length > 0;
+    return (type == RequestType::JOIN || type == RequestType::LEFT) && body_length > 0;
 }
 
 Header Connection::parse_header(const std::vector<char>& buffer) {
@@ -189,7 +189,7 @@ void Connection::onEvent(const std::vector<char>& data, RequestType type) {
 
         // 요청 타입에 따라 분기 처리
         switch (type) {
-        case RequestType::IN:
+        case RequestType::JOIN:
         {            
             thread_pool_.enqueue_task([data, self]() {
                 EventHandler::handle_in_event(data, self);
@@ -197,7 +197,7 @@ void Connection::onEvent(const std::vector<char>& data, RequestType type) {
 
             break;
         }
-        case RequestType::OUT:
+        case RequestType::LEFT:
         {
             thread_pool_.enqueue_task([data, self]() {
                 EventHandler::handle_out_event(data, self);
@@ -232,7 +232,7 @@ void Connection::onClose() {
     Event ev;
     ev.type = EventType::REQUEST;
     ev.connection = shared_from_this();
-    ev.request_type = RequestType::OUT;
+    ev.request_type = RequestType::LEFT;
 
     enqueue_callback_(ev); // OUT 이벤트 등록록
 

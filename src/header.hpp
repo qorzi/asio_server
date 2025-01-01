@@ -9,8 +9,8 @@
 // 요청 타입을 정의하는 enum
 enum class RequestType : uint8_t {
     UNKNOWN = 0,
-    IN = 1,
-    OUT = 2,
+    JOIN = 1,
+    LEFT = 2,
     INPUT = 3
 };
 
