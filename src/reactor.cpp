@@ -1,5 +1,6 @@
 #include "reactor.hpp"
 #include "connection.hpp"
+#include "event_handler.hpp"  // 가령 기존에 쓰시던 static 함수 모음
 
 Reactor::Reactor(unsigned short port, ThreadPool& thread_pool)
     : acceptor_(io_context_, tcp::endpoint(tcp::v4(), port))
@@ -11,56 +12,92 @@ void Reactor::run() {
 }
 
 void Reactor::start_accept() {
-    auto socket = std::make_shared<tcp::socket>(io_context_); // client socket
+    auto socket = std::make_shared<tcp::socket>(io_context_);
     acceptor_.async_accept(*socket, [this, socket](const boost::system::error_code& ec) {
         if (!ec) {
             handle_accept(socket);
         }
-        start_accept(); // 다음 연결 대기
+        start_accept();
     });
 }
 
 void Reactor::handle_accept(std::shared_ptr<tcp::socket> socket) {
-    // 클라이언트 연결 생성 및 시작
-    auto connection = std::make_shared<Connection>(std::move(*socket), thread_pool_);
+    auto connection = std::make_shared<Connection>(std::move(*socket));
+    // 이벤트가 발생하면 Reactor에게 알림
     connection->start_monitoring([this](const Event& event) {
-        this->enqueue_event(event); // Reactor의 이벤트 큐에 등록
+        enqueue_event(event);
     });
 }
 
+// 이벤트 큐에서 꺼내어 처리
 void Reactor::event_loop() {
     is_processing_ = true;
+
     while (!event_queue_.empty()) {
         Event event = event_queue_.front();
         event_queue_.pop();
 
-        // 객체 상태 확인
+        // Connection이 살아있는지 확인
         if (auto connection = event.connection.lock()) {
             switch (event.type) {
-                case EventType::REQUEST:
-                    connection->onEvent(event.data, event.request_type);
+            case EventType::REQUEST:
+            {
+                // 예: join/left 분기 처리
+                switch (event.request_type) {
+                case RequestType::JOIN:
+                    thread_pool_.enqueue_task([connection, event]() {
+                        EventHandler::handle_in_event(event.data, connection);
+                    });
                     break;
-                case EventType::WRITE:
-                    connection->onWrite(event.data);
+
+                case RequestType::LEFT:
+                    thread_pool_.enqueue_task([connection, event]() {
+                        EventHandler::handle_out_event(event.data, connection);
+                    });
                     break;
-                case EventType::CLOSE:
-                    connection->onClose();
+
+                default:
+                    // Unknown request type
+                    std::cout << "Unknown request type.\n";
                     break;
-                case EventType::ERROR:
-                    connection->onError(event.data);
-                    break;
+                }
+                break;
+            }
+            case EventType::WRITE:
+            {
+                std::cout << "Data successfully written to client.\n";
+                break;
+            }
+            case EventType::CLOSE:
+            {
+                std::cout << "[INFO] Reactor: CLOSE event\n";
+                thread_pool_.enqueue_task([connection, event]() {
+                    EventHandler::handle_close_event(event.data, connection);
+                });
+                break;
+            }
+            case EventType::ERROR:
+            {
+                // 에러 처리
+                std::string error_msg(event.data.begin(), event.data.end());
+                std::cerr << "Error occurred: " << error_msg << std::endl;
+                thread_pool_.enqueue_task([connection, event]() {
+                    EventHandler::handle_close_event(event.data, connection);
+                });
+                break;
+            }
             }
         } else {
             std::cerr << "Connection object is no longer valid." << std::endl;
         }
     }
+
     is_processing_ = false;
 }
-
 
 void Reactor::enqueue_event(const Event& event) {
     event_queue_.push(event);
     if (!is_processing_) {
-        event_loop(); // 큐 처리 시작
+        event_loop(); 
     }
 }

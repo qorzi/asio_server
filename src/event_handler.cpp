@@ -108,3 +108,52 @@ void EventHandler::handle_out_event(const std::vector<char>& data, const std::sh
         std::cerr << "[ERROR] Failed to handle OUT event: " << e.what() << std::endl;
     }
 }
+
+// CLOSE 이벤트 처리리
+void EventHandler::handle_close_event(const std::vector<char>& data, const std::shared_ptr<Connection>& connection) {
+    try {
+        // (1) 기존 handle_out_event 로직과 동일하게 "방에서 플레이어 제거" + 브로드캐스트
+        Server& server = Server::getInstance();
+        ConnectionManager& connection_manager = server.get_connection_manager();
+
+        auto player = connection_manager.get_player_for_connection(connection);
+        auto room = player->room;
+
+        if (room) {
+            bool removed = room->remove_player(player);
+            if (removed) {
+                json room_info;
+                room_info["room_id"] = room->id;
+                room_info["players"] = json::array();
+
+                for (const auto& p : room->get_players()) {
+                    room_info["players"].push_back({
+                        {"id", p->id},
+                        {"name", p->name}
+                    });
+                }
+
+                std::string response = create_response_string(RequestType::LEFT, room_info.dump());
+                room->broadcast_message(response);
+
+            } else {
+                std::cout << "[WARNING] Player already removed from room.\n";
+            }
+        }
+
+        // (2) 소켓 닫기 로직 추가
+        if (connection->get_socket().is_open()) {
+            boost::system::error_code ec;
+            connection->get_socket().close(ec);
+            if (ec) {
+                std::cerr << "[ERROR] handle_close_event: failed to close socket: " 
+                          << ec.message() << std::endl;
+            } else {
+                std::cout << "[INFO] Socket closed by handle_close_event.\n";
+            }
+        }
+
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] Failed to handle CLOSE event: " << e.what() << std::endl;
+    }
+}
