@@ -2,6 +2,8 @@
 #include "server.hpp"
 #include "event_handler.hpp"
 
+#define PER_BYTE 8
+
 Connection::Connection(tcp::socket socket, ThreadPool& thread_pool)
     : socket_(std::move(socket))
     , thread_pool_(thread_pool) {}
@@ -16,14 +18,14 @@ void Connection::async_read() {
 }
 
 void Connection::read_chunk() {
-    auto chunk_buffer = std::make_shared<std::vector<char>>(8); // 항상 8바이트씩 읽기
+    auto chunk_buffer = std::make_shared<std::vector<char>>(PER_BYTE); // 항상 8바이트씩 읽기
     auto self = shared_from_this();
 
     std::cout << "[DEBUG] Starting to read a chunk of 8 bytes.\n";
 
     boost::asio::async_read(socket_, boost::asio::buffer(*chunk_buffer),
         [this, self, chunk_buffer](const boost::system::error_code& ec, std::size_t bytes_transferred) {
-            if (!ec && bytes_transferred == 8) {
+            if (!ec && bytes_transferred == PER_BYTE) {
                 std::cout << "[DEBUG] Successfully read 8 bytes. Data: ";
                 for (char c : *chunk_buffer) {
                     std::cout << std::hex << static_cast<int>(c & 0xFF) << " ";
@@ -73,7 +75,7 @@ void Connection::read_chunk() {
 }
 
 bool Connection::is_header(const std::vector<char>& buffer) {
-    if (buffer.size() < 8) {
+    if (buffer.size() < PER_BYTE) {
         std::cout << "[DEBUG] Buffer size is too small to be a header.\n";
         return false;
     }
@@ -82,7 +84,7 @@ bool Connection::is_header(const std::vector<char>& buffer) {
     uint32_t body_length = 0;
 
     for (int i = 0; i < 4; ++i) {
-        body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * 8));
+        body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * PER_BYTE));
     }
 
     std::cout << "[DEBUG] Checking if buffer is header. Type=" << static_cast<int>(type)
@@ -92,7 +94,7 @@ bool Connection::is_header(const std::vector<char>& buffer) {
 }
 
 Header Connection::parse_header(const std::vector<char>& buffer) {
-    if (buffer.size() < 8) {
+    if (buffer.size() < PER_BYTE) {
         throw std::invalid_argument("Buffer size is too small to parse Header.");
     }
 
@@ -102,7 +104,7 @@ Header Connection::parse_header(const std::vector<char>& buffer) {
 
     // 리틀 엔디언으로 body_length 파싱
     for (int i = 0; i < 4; ++i) {
-        header.body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * 8));
+        header.body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * PER_BYTE));
     }
 
     // 디버깅 출력
@@ -119,7 +121,7 @@ void Connection::read_body(const Header& header) {
         return;
     }
 
-    size_t padded_size = ((header.body_length + 7) / 8) * 8; // 패딩 포함 크기 (8의 배수)
+    size_t padded_size = ((header.body_length + 7) / PER_BYTE) * PER_BYTE; // 패딩 포함 크기 (8의 배수)
     std::cout << "[DEBUG] Starting to read body. Padded size=" << padded_size 
               << ", Actual body length=" << header.body_length << "\n";
 
