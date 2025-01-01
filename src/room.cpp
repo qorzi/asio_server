@@ -2,6 +2,8 @@
 #include "player.hpp"
 #include <thread>
 
+#define MAX_PLAYERS 30
+
 Room::Room(int id) : id(id) {
     initialize_maps(); // 맵 초기화 호출출
 }
@@ -58,14 +60,14 @@ bool Room::remove_player(std::shared_ptr<Player> player) {
 }
 
 bool Room::is_full() const {
-    return players.size() >= 30;
+    return players.size() >= MAX_PLAYERS;
 }
 
 const std::vector<std::shared_ptr<Player>>& Room::get_players() const {
     return players;
 }
 
-void Room::start_timer(std::function<void(int)> on_timer_expired, 
+void Room::start_timer(std::function<void(int, bool)> on_timer_expired, 
                        int wait_time_ms, 
                        int check_interval_ms)
 {
@@ -100,13 +102,21 @@ void Room::start_timer(std::function<void(int)> on_timer_expired,
 
             // `players` 상태 확인 - 방에 플레이어가 없으면 만료 처리
             if (players.empty()) {
-                on_timer_expired(id); // 타이머 만료 처리
+                on_timer_expired(id, false); // 타이머 만료 처리 - Room Removal
+                break;
+            }
+
+            // `players` 상태 확인 - 방에 플레이어가 가득차면 만료 처리
+            if (players.size() == MAX_PLAYERS) {
+                on_timer_expired(id, true); // 타이머 만료 처리 - Game Start
+                start_game();
                 break;
             }
 
             // 타이머 초과 시 처리
             if (elapsed_time_ms >= wait_time_ms) {
-                on_timer_expired(id); // 타이머 만료 처리
+                on_timer_expired(id, true); // 타이머 만료 처리 - Game Start
+                start_game();
                 break;
             }
         }
@@ -128,11 +138,20 @@ const bool Room::is_timer_active() const {
     return timer_active.load(std::memory_order_relaxed); // 원자적 읽기
 }
 
-
 void Room::broadcast_message(const std::string& message) {
     std::lock_guard<std::mutex> lock(mutex_); // 플레이어 리스트 보호
 
     for (const auto& player : players) {
         player->send_message(message); // 메시지 전송
     }
+}
+
+void Room::start_game() {
+    // 게임 실행 로직 수행
+    // 1. 플레이어들을 게임 시작 대기 화면으로 이동하도록 명령 ( 플레이어가 시작 위치에서 대기하도록 )
+    // 2. 5초 카운트 다운 수행 후, 게임 시작
+}
+
+void Room::update_game_state() {
+    // 미구현
 }

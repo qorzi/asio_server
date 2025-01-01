@@ -7,7 +7,7 @@
 // 서버에 플레이어를 추가하고, 현재 활성화된 룸에 플레이어가 정상적으로 추가되었는지 확인
 TEST(RoomTest, AddPlayerToRoom) {
     Server& server = Server::getInstance();
-    server.initialize_game();
+    server.initialize_server();
 
     // 새로운 플레이어 생성
     auto player1 = std::make_shared<Player>("player1", "Alice");
@@ -27,7 +27,7 @@ TEST(RoomTest, AddPlayerToRoom) {
 // 서버가 룸의 최대 인원을 초과하면 새로운 룸을 생성하는지 확인
 TEST(RoomTest, CreateNewRoomWhenFull) {
     Server& server = Server::getInstance();
-    server.initialize_game();
+    server.initialize_server();
 
     // 현재 룸에 최대 인원(30명) 추가
     for (int i = 0; i < 30; ++i) {
@@ -48,7 +48,7 @@ TEST(RoomTest, TimerExpiresAfter30ms) {
     auto room = std::make_shared<Room>(1);
 
     bool expired = false;
-    room->start_timer([&expired](int room_id) {
+    room->start_timer([&expired](int room_id, bool is_start) {
         expired = true;
     }, 30, 10); // 30ms 후 타이머 만료
 
@@ -67,7 +67,7 @@ TEST(RoomTest, TimerExpiresWhenNoPlayers) {
     auto room = std::make_shared<Room>(1);
 
     bool expired = false;
-    room->start_timer([&expired](int room_id) {
+    room->start_timer([&expired](int room_id, bool is_start) {
         expired = true;
     }, 30, 10); // 기본 30ms 대기, 10ms 간격으로 상태 확인
 
@@ -87,7 +87,7 @@ TEST(RoomTest, TimerStopsWhenForced) {
     auto room = std::make_shared<Room>(1);
 
     bool expired = false;
-    room->start_timer([&expired](int room_id) {
+    room->start_timer([&expired](int room_id, bool is_start) {
         expired = true;
     }, 30, 10); // 기본 30ms 대기, 10ms 간격으로 상태 확인
 
@@ -107,7 +107,7 @@ TEST(RoomTest, TimerResumesWhenPlayerAdded) {
     auto room = std::make_shared<Room>(1);
 
     bool expired = false;
-    room->start_timer([&expired](int room_id) {
+    room->start_timer([&expired](int room_id, bool is_start) {
         expired = true;
     }, 30, 10); // 기본 30ms 대기, 10ms 간격으로 상태 확인
 

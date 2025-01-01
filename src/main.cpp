@@ -10,7 +10,7 @@ int main() {
 
     // 서버 싱글톤 접근
     Server& server = Server::getInstance();
-    server.initialize_game();
+    server.initialize_server();
 
     std::cout << "[main] Running reactor..." << std::endl;
     reactor.run();

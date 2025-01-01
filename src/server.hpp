@@ -12,7 +12,7 @@ class Server {
 public:
     static Server& getInstance();                           // 싱글톤 인스턴스 반환
 
-    void initialize_game();                                 // 게임 초기화 및 첫 룸 생성
+    void initialize_server();                                 // 게임 초기화 및 첫 룸 생성
     void add_player_to_room(std::shared_ptr<Player> player);// 유저를 현재 룸에 추가
     std::shared_ptr<Room> get_current_room() const;         // 현재 활성화 룸 정보 반환
 
@@ -30,8 +30,9 @@ private:
 
     ConnectionManager connection_manager_;                  // ConnectionManager 멤버 추가
 
-    void add_new_room();                                    // 룸 생성 함수
-    void on_room_timer_expired(int room_id);                // 타미어 만료 콜백
+    void create_room();                                     // 룸 생성 함수
+    void delete_room(int room_id);                          // 룸 제거 함수
+    void on_room_timer_expired(int room_id, bool is_start); // 타미어 만료 콜백
     void shutdown();                                        // 모든 룸 타이머 종료
 };
 
