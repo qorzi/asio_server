@@ -1,6 +1,6 @@
 #include "reactor.hpp"
 #include "connection.hpp"
-#include "event_handler.hpp"  // 가령 기존에 쓰시던 static 함수 모음
+#include "event_handler.hpp"
 
 Reactor::Reactor(unsigned short port, ThreadPool& thread_pool)
     : acceptor_(io_context_, tcp::endpoint(tcp::v4(), port))
@@ -37,74 +37,54 @@ void Reactor::event_loop() {
         Event event = event_queue_.front();
         event_queue_.pop();
 
-        // Connection이 살아있는지 확인
-        if (auto connection = event.connection.lock()) {
-            switch (event.type) {
-            case EventType::REQUEST:
-            {
-                // 예: join/left 분기 처리
-                switch (event.request_type) {
-                case RequestType::JOIN:
-                    thread_pool_.enqueue_task([connection, event]() {
-                        EventHandler::handle_join_event(event.data, connection);
-                    });
-                    break;
-
-                case RequestType::LEFT:
-                    thread_pool_.enqueue_task([connection, event]() {
-                        EventHandler::handle_left_event(event.data, connection);
-                    });
-                    break;
-
-                case RequestType::SET:
-                    // 미구현
-                    break;
-
-                case RequestType::START:
-                    // 미구현
-                    break;
-
-                case RequestType::PLAY:
-                    // 미구현
-                    break;
-
-                case RequestType::END:
-                    // 미구현
-                    break;
-
-                default:
-                    // Unknown request type
-                    std::cout << "Unknown request type.\n";
-                    break;
-                }
-                break;
-            }
-            case EventType::WRITE:
-            {
-                std::cout << "Data successfully written to client.\n";
-                break;
-            }
-            case EventType::CLOSE:
-            {
-                std::cout << "[INFO] Reactor: CLOSE event\n";
-                thread_pool_.enqueue_task([connection, event]() {
-                    EventHandler::handle_close_event(event.data, connection);
+        // 각 EventType별로 작업 스케줄링
+        switch (event.type) {
+        case EventType::REQUEST:
+        {
+            // request_type에 따라 처리
+            switch (event.request_type) {
+            case RequestType::JOIN:
+                thread_pool_.enqueue_task([event]() {
+                    // ThreadPool 안의 worker_thread()에서 try-catch 처리
+                    EventHandler::handle_join_event(event);
                 });
                 break;
-            }
-            case EventType::ERROR:
-            {
-                // 에러 처리
-                std::string error_msg(event.data.begin(), event.data.end());
-                std::cerr << "Error occurred: " << error_msg << std::endl;
-                thread_pool_.enqueue_task([connection, event]() {
-                    EventHandler::handle_close_event(event.data, connection);
+            case RequestType::LEFT:
+                thread_pool_.enqueue_task([event]() {
+                    EventHandler::handle_left_event(event);
                 });
                 break;
+            // ... 다른 RequestType: SET, START, PLAY, END, etc.
+            default:
+                std::cout << "[WARNING] Unknown request type.\n";
+                break;
             }
-            }
-        } else {
-            std::cerr << "Connection object is no longer valid." << std::endl;
+            break;
+        }
+        case EventType::WRITE:
+        {
+            std::cout << "[INFO] Reactor: WRITE event\n";
+            break;
+        }
+        case EventType::CLOSE:
+        {
+            std::cout << "[INFO] Reactor: CLOSE event\n";
+            thread_pool_.enqueue_task([event]() {
+                EventHandler::handle_close_event(event);
+            });
+            break;
+        }
+        case EventType::ERROR:
+        {
+            std::string err_msg(event.data.begin(), event.data.end());
+            std::cerr << "[ERROR] Reactor got ERROR event: " << err_msg << std::endl;
+
+            // 대부분 ERROR 이벤트 = 소켓 닫기 or cleanup
+            thread_pool_.enqueue_task([event]() {
+                EventHandler::handle_close_event(event);
+            });
+            break;
+        }
         }
     }
 
@@ -114,6 +94,6 @@ void Reactor::event_loop() {
 void Reactor::enqueue_event(const Event& event) {
     event_queue_.push(event);
     if (!is_processing_) {
-        event_loop(); 
+        event_loop();
     }
 }
