@@ -31,6 +31,8 @@ set(SOURCES
     src/room.cpp
     src/map.cpp
     src/player.cpp
+    # 핸들러
+    src/event_handler.cpp
 )
 
 # 타겟 생성

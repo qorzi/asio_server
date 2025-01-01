@@ -32,7 +32,6 @@ private:
     static Header parse_header(const std::vector<char>& header);
     void read_body(const Header& header);
     void read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer, const Header& header, std::size_t bytes_read);
-    std::string create_response_string(RequestType type, const std::string& body);
 
     tcp::socket socket_;
     std::function<void(const Event&)> enqueue_callback_;

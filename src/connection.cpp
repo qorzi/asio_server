@@ -1,8 +1,6 @@
 #include "connection.hpp"
 #include "server.hpp"
-#include <nlohmann/json.hpp>
-
-using json = nlohmann::json;
+#include "event_handler.hpp"
 
 Connection::Connection(tcp::socket socket, ThreadPool& thread_pool)
     : socket_(std::move(socket))
@@ -183,42 +181,9 @@ void Connection::async_write(const std::string& data) {
         });
 }
 
-std::vector<char> serialize_header(const Header& header) {
-    std::vector<char> buffer(8);
-    std::memcpy(buffer.data(), &header, sizeof(Header));
-    std::cout << "[DEBUG] Serialized Header: ";
-    for (char c : buffer) {
-        std::cout << std::hex << static_cast<int>(c & 0xFF) << " ";
-    }
-    std::cout << std::endl;
-    return buffer;
-}
-
-std::string Connection::create_response_string(RequestType type, const std::string& body) {
-    // 헤더 생성
-    Header header{type, static_cast<uint32_t>(body.size())};
-
-    std::cout << "-----Size of Header: " << sizeof(Header) << std::endl;
-    serialize_header(header);
-
-    // 헤더를 바이너리 데이터로 변환
-    std::vector<char> header_buffer(sizeof(Header));
-    std::memcpy(header_buffer.data(), &header, sizeof(Header));
-
-    // 본문 데이터 패딩 처리 (8바이트 배수로 맞춤)
-    size_t padded_body_length = ((body.size() + 7) / 8) * 8; // 8의 배수로 맞춤
-    std::string padded_body = body;
-    padded_body.resize(padded_body_length, '\0'); // '\0'으로 패딩 추가
-
-    // 헤더와 패딩된 본문 결합
-    std::string response(header_buffer.begin(), header_buffer.end());
-    response += padded_body;
-
-    return response; // 결합된 헤더 + 패딩된 본문 스트링 반환
-}
-
 void Connection::onEvent(const std::vector<char>& data, RequestType type) { 
     try {
+        auto self = shared_from_this();
         std::string message(data.begin(), data.end());
         std::cout << "Received data: " << message << std::endl;
 
@@ -226,106 +191,16 @@ void Connection::onEvent(const std::vector<char>& data, RequestType type) {
         switch (type) {
         case RequestType::IN:
         {            
-            // 작업을 람다 함수로 정의
-            thread_pool_.enqueue_task([this, data]() {
-
-                // json 데이터 가정(필수)
-                // {
-                //     "player_id": "12345",
-                //     "player_name": "Alice"
-                // }
-
-                // JSON 파싱
-                json parsed_data = json::parse(data);
-                // 클라이언트에서 보낸 데이터에서 플레이어 정보 추출
-                std::string player_id = parsed_data["player_id"].get<std::string>();
-                std::string player_name = parsed_data["player_name"].get<std::string>();
-                
-                // 새로운 플레이어 객체 생성
-                auto player = std::make_shared<Player>(player_id, player_name);
-
-                // 서버 싱글톤 인스턴스 가져오기
-                Server& server = Server::getInstance();
-                // 룸에 플레이어 추가
-                server.add_player_to_room(player);
-
-                // connection_manager에 관계 등록
-                ConnectionManager& cm = server.get_connection_manager();
-                cm.register_connection(player, shared_from_this());
-
-                // 방에 참가한 모든 플레이어에게 전달될 데이터 예시
-                // {
-                //     "room_id": 1,
-                //     "players": [
-                //         {
-                //             "id": "player1",
-                //             "name": "Alice"
-                //         },
-                //         {
-                //             "id": "player2",
-                //             "name": "Bob"
-                //         }
-                //     ]
-                // }
-
-                // 플레이어에게 룸 정보 전송
-                auto room = player->room; // 플레이어가 속한 룸
-                if (room) {
-                    json room_info;
-                    room_info["room_id"] = room->id;
-                    room_info["players"] = json::array();
-
-                    for (const auto& p : room->get_players()) {
-                        room_info["players"].push_back({
-                            {"id", p->id},    // 플레이어 ID
-                            {"name", p->name} // 플레이어 이름
-                        });
-                    }
-
-                    std::string response = create_response_string(RequestType::IN, room_info.dump());
-
-                    room->broadcast_message(response); // 방 전체에 룸 정보 브로드캐스트
-                }
-
+            thread_pool_.enqueue_task([data, self]() {
+                EventHandler::handle_in_event(data, self);
             });
 
             break;
         }
         case RequestType::OUT:
         {
-            thread_pool_.enqueue_task([this, data]() {
-
-                // 서버 싱글톤 인스턴스 가져오기
-                Server& server = Server::getInstance();
-                ConnectionManager& connection_manager = server.get_connection_manager();
-
-                auto player = connection_manager.get_player_for_connection(shared_from_this());
-                auto room = player->room;
-
-                if (room) {
-                    // 룸에서 플레이어 제거
-                    bool removed = room->remove_player(player);
-
-                    if (removed) {
-                        // 변경된 룸 정보를 브로드캐스트
-                        json room_info;
-                        room_info["room_id"] = room->id;
-                        room_info["players"] = json::array();
-
-                        for (const auto& p : room->get_players()) {
-                            room_info["players"].push_back({
-                                {"id", p->id},
-                                {"name", p->name}
-                            });
-                        }
-
-                        std::string response = create_response_string(RequestType::OUT, room_info.dump());
-                        room->broadcast_message(response);
-                    } else {
-                        std::cout << "[WARNING] Player is already removed from the room.\n";
-                    }
-                }
-
+            thread_pool_.enqueue_task([data, self]() {
+                EventHandler::handle_out_event(data, self);
             });
 
             break;
