@@ -85,6 +85,16 @@ void Server::add_player_to_room(std::shared_ptr<Player> player) {
     }
 }
 
+// 플레이어를 룸에서 제거
+void Server::remove_player_to_room(std::shared_ptr<Player> player) {
+    if (auto room_ptr = player->room.lock()) {
+        room_ptr->remove_player(player);
+    } else {
+        // room_ptr이 이미 소멸되었다면(weak_ptr expired)
+        std::cerr << "[WARNING] Cannot remove player from room: room has expired.\n";
+    }
+}
+
 void Server::shutdown() {
     std::lock_guard<std::mutex> lock(room_mutex);
 
