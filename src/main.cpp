@@ -1,20 +1,10 @@
-#include "reactor.hpp"
-#include "thread_pool.hpp"
-#include "server.hpp"
+#include <iostream>
+#include "game_server_app.hpp"
 
+// main.cpp
 int main() {
-    std::cout << "[main] Starting server..." << std::endl;
-
-    ThreadPool thread_pool;
-    Reactor reactor(12345, thread_pool);
-
-    // 서버 싱글톤 접근
-    Server& server = Server::getInstance();
-    server.initialize_server();
-
-    std::cout << "[main] Running reactor..." << std::endl;
-    reactor.run();
-
+    std::cout << "[main] Starting GameServerApp..." << std::endl;
+    GameServerApp app;
+    app.start();
     return 0;
 }
-

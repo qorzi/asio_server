@@ -21,6 +21,7 @@ FetchContent_MakeAvailable(json)
 # 소스 파일
 set(SOURCES
     src/main.cpp
+    src/game_server_app.cpp
     # 통신 처리
     src/reactor.cpp
     src/connection.cpp
