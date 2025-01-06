@@ -15,7 +15,7 @@ using boost::asio::ip::tcp;
 
 class Reactor {
 public:
-    explicit Reactor(unsigned short port, ThreadPool& thread_pool);
+    explicit Reactor(boost::asio::io_context& ioc, unsigned short port, ThreadPool& thread_pool);
 
     void run();
     void enqueue_event(const Event& event);
@@ -25,7 +25,7 @@ private:
     void handle_accept(std::shared_ptr<tcp::socket> socket);
     void event_loop();
 
-    boost::asio::io_context io_context_;
+    boost::asio::io_context& ioc_;
     tcp::acceptor acceptor_;
     std::queue<Event> event_queue_;
     std::unordered_map<EventType, std::function<void(std::shared_ptr<Connection>, const std::vector<char>&)>> handlers_;

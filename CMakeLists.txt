@@ -28,7 +28,7 @@ set(SOURCES
     src/thread_pool.cpp
     src/connection_manager.cpp
     # 게임 처리
-    src/server.cpp
+    src/game_manager.cpp
     src/room.cpp
     src/map.cpp
     src/player.cpp

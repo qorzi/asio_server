@@ -9,7 +9,7 @@ set(TEST_SOURCES
 
 # 필요한 소스 파일 추가
 set(SOURCES
-    ../src/server.cpp
+    ../src/game_manager.cpp
     ../src/room.cpp
     ../src/player.cpp
     ../src/map.cpp

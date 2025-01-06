@@ -2,7 +2,7 @@
 #define GAME_SERVER_APP_HPP
 
 #include <memory>
-#include "server.hpp"
+#include "game_manager.hpp"
 #include "reactor.hpp"
 #include "thread_pool.hpp"
 
@@ -28,9 +28,10 @@ private:
     bool running_ = false;
 
     // 주요 구성 요소
+    boost::asio::io_context io_context_;
     std::unique_ptr<ThreadPool> thread_pool_;
     std::unique_ptr<Reactor> reactor_;
-    std::unique_ptr<Server> server_;
+    std::unique_ptr<GameManager> game_manager_;
 };
 
 #endif // GAME_SERVER_APP_HPP

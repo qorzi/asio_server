@@ -2,26 +2,32 @@
 #include "connection.hpp"
 #include "event_handler.hpp"
 
-Reactor::Reactor(unsigned short port, ThreadPool& thread_pool)
-    : acceptor_(io_context_, tcp::endpoint(tcp::v4(), port))
-    , thread_pool_(thread_pool) {}
+Reactor::Reactor(boost::asio::io_context& ioc, unsigned short port, ThreadPool& thread_pool)
+    : ioc_(ioc)
+    , acceptor_(ioc, tcp::endpoint(tcp::v4(), port))
+    , thread_pool_(thread_pool)
+{
+    std::cout << "[Reactor] Constructor - port:" << port << "\n";
+}
+
 
 void Reactor::run() {
     start_accept();
-    io_context_.run();
 }
 
 void Reactor::start_accept() {
-    auto socket = std::make_shared<tcp::socket>(io_context_);
+    auto socket = std::make_shared<tcp::socket>(ioc_);
     acceptor_.async_accept(*socket, [this, socket](const boost::system::error_code& ec) {
         if (!ec) {
             handle_accept(socket);
         }
+        // 다음 연결도 대기
         start_accept();
     });
 }
 
 void Reactor::handle_accept(std::shared_ptr<tcp::socket> socket) {
+    std::cout << "[Reactor] New connection accepted.\n";
     auto connection = std::make_shared<Connection>(std::move(*socket));
     // 이벤트가 발생하면 Reactor에게 알림
     connection->start_monitoring([this](const Event& event) {

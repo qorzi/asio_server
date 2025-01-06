@@ -25,4 +25,3 @@ std::shared_ptr<Player> ConnectionManager::get_player_for_connection(std::shared
     }
     return nullptr;
 }
-
