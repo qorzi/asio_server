@@ -30,9 +30,7 @@ void Reactor::start_accept() {
 void Reactor::handle_accept(std::shared_ptr<tcp::socket> socket) {
     auto connection = std::make_shared<Connection>(std::move(*socket));
     // 이벤트가 발생하면 Reactor에게 알림
-    connection->start_monitoring([this](const Event& event) {
-        enqueue_event(event);
-    });
+    connection->start();
 }
 
 // 이벤트 큐에서 꺼내어 처리

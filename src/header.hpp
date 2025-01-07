@@ -6,23 +6,12 @@
 #include <cstdint>
 #include <cstring>
 
-// 요청 타입을 정의하는 enum
-enum class RequestType : uint8_t {
-    UNKNOWN = 0,
-    JOIN = 1,
-    LEFT = 2,
-    SET = 3,
-    START = 4,
-    PLAY = 5,
-    END = 6
-};
-
-// 헤더 구조체 정의
+// 헤더 구조체 정의 (8 byte)
 #pragma pack(push, 1)
 struct Header {
-    RequestType type;       // 1 byte
-    uint32_t body_length;   // 4 bytes
-    char padding[3];        // 패딩 추가
+    MainEventType main_type;    // 2 byte
+    uint16_t sub_type;          // 2 byte
+    uint32_t body_length;       // 4 bytes
 };
 #pragma pack(pop)
 

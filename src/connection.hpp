@@ -16,8 +16,7 @@ class Connection : public std::enable_shared_from_this<Connection> {
 public:
     explicit Connection(tcp::socket socket);
 
-    // 리액터로 이벤트를 알릴 때 사용할 콜백(이벤트 enqueue 함수)
-    void start_monitoring(std::function<void(const Event&)> enqueue_callback);
+    void start();
 
     void async_write(const std::string& response);
 
@@ -36,8 +35,6 @@ private:
                          std::size_t bytes_read);
 
     tcp::socket socket_;
-    // 이벤트 큐에 등록하기 위한 콜백
-    std::function<void(const Event&)> enqueue_callback_;
 };
 
 #endif // CONNECTION_HPP

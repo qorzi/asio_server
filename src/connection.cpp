@@ -1,4 +1,5 @@
 #include "connection.hpp"
+#include "reactor.hpp"
 #include <boost/asio.hpp>
 #include <iostream>
 
@@ -9,8 +10,7 @@ Connection::Connection(tcp::socket socket)
 {
 }
 
-void Connection::start_monitoring(std::function<void(const Event&)> enqueue_callback) {
-    enqueue_callback_ = std::move(enqueue_callback);
+void Connection::start() {
     async_read(); // 읽기 시작
 }
 
@@ -34,65 +34,68 @@ void Connection::read_chunk() {
                         Header header = parse_header(*chunk_buffer);
                         read_body(header);
                     } else {
-                        // 잘못된 헤더라면 에러 이벤트
-                        enqueue_callback_(
-                            Event{
-                                EventType::ERROR,
-                                self,
-                                RequestType::UNKNOWN,
-                                {'I','n','v','a','l','i','d','H','d','r'}
-                            }
-                        );
+                        // 잘못된 헤더 -> ERROR 이벤트(임시로 CLOSE로 처리)
+                        Event ev;
+                        ev.main_type = MainEventType::NETWORK;
+                        ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
+                        ev.connection = self;
+                        std::string msg = "Invalid Header";
+                        ev.data.assign(msg.begin(), msg.end());
+                        Reactor::getInstance().enqueue_event(ev);
                     }
                 } catch (const std::exception& e) {
-                    enqueue_callback_(
-                        Event{
-                            EventType::ERROR,
-                            self,
-                            RequestType::UNKNOWN,
-                            std::vector<char>(e.what(), e.what() + std::strlen(e.what()))
-                        }
-                    );
+                    Event ev;
+                    ev.main_type = MainEventType::NETWORK;
+                    ev.sub_type  = (uint16_t)NetworkSubType::CLOSE; 
+                    ev.connection = self;
+                    std::string msg(e.what());
+                    ev.data.assign(msg.begin(), msg.end());
+                    Reactor::getInstance().enqueue_event(ev);
                 }
             }
             else if (ec == boost::asio::error::eof || ec == boost::asio::error::connection_reset) {
                 // 연결 종료
-                enqueue_callback_(
-                    Event{
-                        EventType::CLOSE,
-                        self,
-                        RequestType::UNKNOWN,
-                        {}
-                    }
-                );
+                Event ev;
+                ev.main_type = MainEventType::NETWORK;
+                ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
+                ev.connection = self;
+                Reactor::getInstance().enqueue_event(ev);
             }
             else {
                 // 기타 에러
                 std::string msg = ec ? ec.message() : "Unknown error";
-                enqueue_callback_(
-                    Event{
-                        EventType::ERROR,
-                        self,
-                        RequestType::UNKNOWN,
-                        std::vector<char>(msg.begin(), msg.end())
-                    }
-                );
+                Event ev;
+                ev.main_type = MainEventType::NETWORK;
+                ev.sub_type  = (uint16_t)NetworkSubType::CLOSE; 
+                ev.connection = self;
+                ev.data.assign(msg.begin(), msg.end());
+                Reactor::getInstance().enqueue_event(ev);
             }
         }
     );
 }
 
 bool Connection::is_header(const std::vector<char>& buffer) {
+    // 1) 8 byte 확인
     if (buffer.size() < PER_BYTE) {
         return false;
     }
-    // 예시 조건
-    RequestType type = static_cast<RequestType>(buffer[0]);
-    uint32_t body_length = 0;
-    for (int i = 0; i < 4; ++i) {
-        body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * 8));
+
+    // 2) 헤더를 파싱
+    Header header;
+    std::memcpy(&header, buffer.data(), sizeof(Header));
+
+    // 3) main_type에 따라 sub_type 범위 확인
+    switch (header.main_type) {
+    case MainEventType::NETWORK:
+        return (header.sub_type >= 101 && header.sub_type <= 199);
+
+    case MainEventType::GAME:
+        return (header.sub_type >= 201 && header.sub_type <= 299);
+
+    default:
+        return false; // 알 수 없는 main_type
     }
-    return (type == RequestType::JOIN || type == RequestType::LEFT) && (body_length > 0);
 }
 
 Header Connection::parse_header(const std::vector<char>& buffer) {
@@ -101,11 +104,7 @@ Header Connection::parse_header(const std::vector<char>& buffer) {
     }
 
     Header header;
-    header.type = static_cast<RequestType>(buffer[0]);
-    header.body_length = 0;
-    for (int i = 0; i < 4; ++i) {
-        header.body_length |= (static_cast<uint32_t>(buffer[1 + i]) << (i * 8));
-    }
+    std::memcpy(&header, buffer.data(), sizeof(Header));
     return header;
 }
 
@@ -157,40 +156,34 @@ void Connection::read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer,
                         body_buffer->begin() + header.body_length
                     );
 
-                    // REQUEST 이벤트 큐에 등록
-                    enqueue_callback_(
-                        Event{
-                            EventType::REQUEST,
-                            self,
-                            header.type,
-                            actual_data
-                        }
-                    );
+                    // 이벤트 큐에 등록
+                    Event ev;
+                    ev.main_type = header.main_type;
+                    ev.sub_type  = header.sub_type;
+                    ev.connection= self;
+                    ev.data      = std::move(actual_data);
+
+                    Reactor::getInstance().enqueue_event(ev);
 
                     // 다음 요청 대비
                     async_read();
                 }
             } else if (ec == boost::asio::error::eof || ec == boost::asio::error::connection_reset) {
                 // 연결 종료
-                enqueue_callback_(
-                    Event{
-                        EventType::CLOSE,
-                        self,
-                        RequestType::UNKNOWN,
-                        {}
-                    }
-                );
+                Event ev;
+                ev.main_type = MainEventType::NETWORK;
+                ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
+                ev.connection= self;
+                Reactor::getInstance().enqueue_event(ev);
             } else {
                 // 읽기 에러
                 std::string msg = ec ? ec.message() : "Unknown error";
-                enqueue_callback_(
-                    Event{
-                        EventType::ERROR,
-                        self,
-                        RequestType::UNKNOWN,
-                        std::vector<char>(msg.begin(), msg.end())
-                    }
-                );
+                Event ev;
+                ev.main_type = MainEventType::NETWORK;
+                ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
+                ev.connection= self;
+                ev.data.assign(msg.begin(), msg.end());
+                Reactor::getInstance().enqueue_event(ev);
             }
         }
     );
@@ -207,33 +200,25 @@ void Connection::async_write(const std::string& data) {
         {
             if (!ec) {
                 // 쓰기 완료 -> WRITE 이벤트
-                enqueue_callback_(
-                    Event{
-                        EventType::WRITE,
-                        self,
-                        RequestType::UNKNOWN,
-                        std::vector<char>(send_buf->begin(), send_buf->end())
-                    }
-                );
+                // 필요 없음. - WRITE는 편리를 위해 바로 쓰도록 하는게 맞는것으로 보임.
             } else {
                 // 쓰기 에러 -> CLOSE로 처리
-                enqueue_callback_(
-                    Event{
-                        EventType::CLOSE,
-                        self,
-                        RequestType::UNKNOWN,
-                        {}
-                    }
-                );
+                Event ev;
+                ev.main_type = MainEventType::NETWORK;
+                ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
+                ev.connection= self;
+                std::string msg = ec.message();
+                ev.data.assign(msg.begin(), msg.end());
+                Reactor::getInstance().enqueue_event(ev);
             }
         }
     );
 }
 
-// 헬퍼: 응답을 헤더+바디 형태로 직렬화
-static std::string create_response_string(RequestType type, const std::string& body) {
+// 직렬화 헬퍼 함수
+static std::string create_response_string(MainEventType main_type, uint16_t sub_type, const std::string& body) {
     // 헤더 생성
-    Header header{type, static_cast<uint32_t>(body.size())};
+    Header header{main_type, sub_type, static_cast<uint32_t>(body.size())};
 
     // 헤더를 바이너리 데이터로 변환(직렬화)
     std::vector<char> header_buffer(sizeof(Header));
