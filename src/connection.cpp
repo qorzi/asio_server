@@ -41,7 +41,7 @@ void Connection::read_chunk() {
                         ev.connection = self;
                         std::string msg = "Invalid Header";
                         ev.data.assign(msg.begin(), msg.end());
-                        Reactor::getInstance().enqueue_event(ev);
+                        Reactor::get_instance().enqueue_event(ev);
                     }
                 } catch (const std::exception& e) {
                     Event ev;
@@ -50,7 +50,7 @@ void Connection::read_chunk() {
                     ev.connection = self;
                     std::string msg(e.what());
                     ev.data.assign(msg.begin(), msg.end());
-                    Reactor::getInstance().enqueue_event(ev);
+                    Reactor::get_instance().enqueue_event(ev);
                 }
             }
             else if (ec == boost::asio::error::eof || ec == boost::asio::error::connection_reset) {
@@ -59,7 +59,7 @@ void Connection::read_chunk() {
                 ev.main_type = MainEventType::NETWORK;
                 ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
                 ev.connection = self;
-                Reactor::getInstance().enqueue_event(ev);
+                Reactor::get_instance().enqueue_event(ev);
             }
             else {
                 // 기타 에러
@@ -69,7 +69,7 @@ void Connection::read_chunk() {
                 ev.sub_type  = (uint16_t)NetworkSubType::CLOSE; 
                 ev.connection = self;
                 ev.data.assign(msg.begin(), msg.end());
-                Reactor::getInstance().enqueue_event(ev);
+                Reactor::get_instance().enqueue_event(ev);
             }
         }
     );
@@ -113,14 +113,13 @@ void Connection::read_body(const Header& header) {
 
     if (header.body_length > 10 * 1024 * 1024) {
         // 너무 큰 바디 -> 에러
-        enqueue_callback_(
-            Event{
-                EventType::ERROR,
-                self,
-                RequestType::UNKNOWN,
-                {'B','o','d','y','T','o','o','B','i','g'}
-            }
-        );
+        Event ev;
+        ev.main_type = MainEventType::NETWORK;
+        ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
+        ev.connection= self;
+        std::string msg = "Body too big";
+        ev.data.assign(msg.begin(), msg.end());
+        Reactor::get_instance().enqueue_event(ev);
         return;
     }
 
@@ -163,7 +162,7 @@ void Connection::read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer,
                     ev.connection= self;
                     ev.data      = std::move(actual_data);
 
-                    Reactor::getInstance().enqueue_event(ev);
+                    Reactor::get_instance().enqueue_event(ev);
 
                     // 다음 요청 대비
                     async_read();
@@ -174,7 +173,7 @@ void Connection::read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer,
                 ev.main_type = MainEventType::NETWORK;
                 ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
                 ev.connection= self;
-                Reactor::getInstance().enqueue_event(ev);
+                Reactor::get_instance().enqueue_event(ev);
             } else {
                 // 읽기 에러
                 std::string msg = ec ? ec.message() : "Unknown error";
@@ -183,7 +182,7 @@ void Connection::read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer,
                 ev.sub_type  = (uint16_t)NetworkSubType::CLOSE;
                 ev.connection= self;
                 ev.data.assign(msg.begin(), msg.end());
-                Reactor::getInstance().enqueue_event(ev);
+                Reactor::get_instance().enqueue_event(ev);
             }
         }
     );
@@ -209,29 +208,8 @@ void Connection::async_write(const std::string& data) {
                 ev.connection= self;
                 std::string msg = ec.message();
                 ev.data.assign(msg.begin(), msg.end());
-                Reactor::getInstance().enqueue_event(ev);
+                Reactor::get_instance().enqueue_event(ev);
             }
         }
     );
-}
-
-// 직렬화 헬퍼 함수
-static std::string create_response_string(MainEventType main_type, uint16_t sub_type, const std::string& body) {
-    // 헤더 생성
-    Header header{main_type, sub_type, static_cast<uint32_t>(body.size())};
-
-    // 헤더를 바이너리 데이터로 변환(직렬화)
-    std::vector<char> header_buffer(sizeof(Header));
-    std::memcpy(header_buffer.data(), &header, sizeof(Header));
-
-    // 본문 데이터 패딩 처리 (8바이트 배수로 맞춤)
-    size_t padded_length = ((body.size() + 7) / 8) * 8; // 8의 배수로 맞춤
-    std::string padded_body = body;
-    padded_body.resize(padded_length, '\0'); // '\0'으로 패딩 추가
-
-    // 헤더와 패딩된 본문 결합
-    std::string response(header_buffer.begin(), header_buffer.end());
-    response += padded_body;
-
-    return response; // 결합된 헤더 + 패딩된 본문 스트링 반환
 }

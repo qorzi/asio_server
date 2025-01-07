@@ -4,9 +4,8 @@
 #include <thread>
 #include <iostream>
 
-Room::Room(int id, boost::asio::io_context& ioc)
+Room::Room(int id)
     : id_(id)
-    , ioc_(ioc)
 {
     std::cout << "[DEBUG][Room:" << id << "] Room constructor called.\n";
     // 초기화
@@ -63,6 +62,16 @@ bool Room::remove_player(std::shared_ptr<Player> player) {
     return false;
 }
 
+std::shared_ptr<Player> Room::find_player(const std::string& player_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto& player : players_) {
+        if (player->id_ == player_id) {
+            return player;
+        }
+    }
+    return nullptr;
+}
+
 const std::vector<std::shared_ptr<Player>>& Room::get_players() const {
     return players_;
 }
@@ -76,8 +85,4 @@ void Room::broadcast_message(const std::string& message) {
     for (const auto& player : players_) {
         player->send_message(message); // 메시지 전송
     }
-}
-
-void Room::update_game_state() {
-    // 미구현
 }

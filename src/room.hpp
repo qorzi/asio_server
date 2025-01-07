@@ -17,26 +17,25 @@ class Room : public std::enable_shared_from_this<Room> {
 public:
     const int id_;
 
-    // Room은 반드시 io_context를 받아야 함
-    Room(int id, boost::asio::io_context& ioc);
+    Room(int id);
+
+    // Map 초기화 함수
+    void initialize_maps();
 
     // 플레이어 관련 함수
     bool add_player(std::shared_ptr<Player> player);
     bool remove_player(std::shared_ptr<Player> player);
+    std::shared_ptr<Player> find_player(const std::string& player_id);
     const std::vector<std::shared_ptr<Player>>& get_players() const;
 
     // 메시지 브로드캐스트
     void broadcast_message(const std::string& message);
 
 private:
-    boost::asio::io_context& ioc_;      // Reactor와 공유할 io_context
-
     std::vector<std::shared_ptr<Map>> maps_;
     std::unordered_map<std::string, std::shared_ptr<Map>> portal_links_;
     std::vector<std::shared_ptr<Player>> players_;
     std::mutex mutex_;
-
-    void initialize_maps();
 };
 
 #endif // ROOM_HPP

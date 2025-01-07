@@ -26,7 +26,7 @@ public:
 
     static void initialize_instance(boost::asio::io_context& ioc, unsigned short port, ThreadPool& thread_pool, GameManager& gm) {
         if (!instance_) {
-            instance_ = std::make_unique<Reactor>(ioc, port, thread_pool, gm);
+            instance_ = std::unique_ptr<Reactor>(new Reactor(ioc, port, thread_pool, gm));
         }
     }
 

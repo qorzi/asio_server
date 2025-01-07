@@ -1,5 +1,7 @@
 #include "game_event_handler.hpp"
 #include "room.hpp"
+#include "reactor.hpp"
+#include <nlohmann/json.hpp>
 #include <iostream>
 
 GameEventHandler::GameEventHandler(GameManager& gm, boost::asio::io_context& ioc)
@@ -15,21 +17,21 @@ void GameEventHandler::handle_event(const Event& event)
         return;
     }
 
-    switch (static_cast<GameSubType>(ev.sub_type)) {
+    switch (static_cast<GameSubType>(event.sub_type)) {
     case GameSubType::ROOM_CREATE:
-        handle_room_create(ev);
+        handle_room_create(event);
         break;
     case GameSubType::GAME_START_COUNTDOWN:
-        handle_game_start_countdown(ev);
+        handle_game_start_countdown(event);
         break;
     case GameSubType::GAME_START:
-        handle_game_start(ev);
+        handle_game_start(event);
         break;
     case GameSubType::PLAYER_MOVED:
-        handle_player_moved(ev);
+        handle_player_moved(event);
         break;
     default:
-        std::cerr << "[GameEventHandler] Unknown sub_type=" << ev.sub_type << "\n";
+        std::cerr << "[GameEventHandler] Unknown sub_type=" << event.sub_type << "\n";
     }
 }
 
@@ -73,7 +75,7 @@ void GameEventHandler::handle_room_create(const Event& ev)
     std::string countdown_val = "5"; 
     countEv.data.assign(countdown_val.begin(), countdown_val.end());
 
-    Reactor::getInstance().enqueue_event(countEv);
+    Reactor::get_instance().enqueue_event(countEv);
 }
 
 /**
@@ -103,7 +105,7 @@ void GameEventHandler::handle_game_start_countdown(const Event& ev)
         startEv.main_type = MainEventType::GAME;
         startEv.sub_type  = (uint16_t)GameSubType::GAME_START;
         startEv.room_id   = ev.room_id;
-        Reactor::getInstance().enqueue_event(startEv);
+        Reactor::get_instance().enqueue_event(startEv);
         return;
     }
 
@@ -120,7 +122,7 @@ void GameEventHandler::handle_game_start_countdown(const Event& ev)
             next.room_id   = room_id;
             auto s = std::to_string(nextSec);
             next.data.assign(s.begin(), s.end());
-            Reactor::getInstance().enqueue_event(next);
+            Reactor::get_instance().enqueue_event(next);
         }
     });
 }

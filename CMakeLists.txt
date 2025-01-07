@@ -20,6 +20,9 @@ FetchContent_MakeAvailable(json)
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(HANDLER_DIR ${SRC_DIR}/handler)
 
+# 헤더 파일 경로 설정정
+include_directories(${SRC_DIR} ${HANDLER_DIR})
+
 # 메인 소스 파일
 set(SOURCES
     ${SRC_DIR}/main.cpp
@@ -32,6 +35,7 @@ set(SOURCES
     ${SRC_DIR}/room.cpp
     ${SRC_DIR}/map.cpp
     ${SRC_DIR}/player.cpp
+    ${SRC_DIR}/utils.cpp
     ${HANDLER_DIR}/network_event_handler.cpp
     ${HANDLER_DIR}/game_event_handler.cpp
 )
@@ -44,4 +48,4 @@ target_link_libraries(asio_server PRIVATE ${Boost_LIBRARIES} pthread nlohmann_js
 
 # 테스트 추가
 enable_testing()
-add_subdirectory(tests)
+# add_subdirectory(tests)

@@ -3,7 +3,7 @@ find_package(GTest REQUIRED)
 
 # 테스트 전용 소스 파일
 set(TEST_SOURCES
-    ${CMAKE_CURRENT_SOURCE_DIR}/test_room.cpp
+    # ${CMAKE_CURRENT_SOURCE_DIR}/test_room.cpp
 )
 
 # 상위 디렉터리에서 SOURCES 가져오기

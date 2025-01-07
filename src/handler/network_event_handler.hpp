@@ -4,7 +4,6 @@
 #include "event.hpp"
 #include "game_manager.hpp"
 #include "connection_manager.hpp"
-#include <nlohmann/json.hpp>
 
 class NetworkEventHandler {
 public:

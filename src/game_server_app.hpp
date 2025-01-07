@@ -30,7 +30,6 @@ private:
     // 주요 구성 요소
     boost::asio::io_context io_context_;
     std::unique_ptr<ThreadPool> thread_pool_;
-    std::unique_ptr<Reactor> reactor_;
     std::unique_ptr<GameManager> game_manager_;
 };
 

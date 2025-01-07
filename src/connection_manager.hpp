@@ -36,4 +36,4 @@ private:
     mutable std::mutex mutex_; // 동시 접근 제어
 };
 
-#endif CONNECTION_MANAGER_HPP
+#endif // CONNECTION_MANAGER_HPP

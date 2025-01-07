@@ -2,9 +2,11 @@
 #define PLAYER_HPP
 
 #include "point.hpp"
-#include "room.hpp"
 #include <memory>
 #include <string>
+
+class Room;
+class Map;
 
 class Player : public std::enable_shared_from_this<Player> {
 public:

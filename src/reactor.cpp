@@ -8,7 +8,7 @@ Reactor::Reactor(boost::asio::io_context& ioc, unsigned short port, ThreadPool& 
     , thread_pool_(thread_pool)
     , ioc_(ioc)
     , network_handler_(gm)
-    , game_handler_(gm)
+    , game_handler_(gm, ioc)
 {
     std::cout << "[Reactor] Constructor - port:" << port << "\n";
 }
@@ -62,7 +62,6 @@ void Reactor::event_loop() {
         default:
             // unknown
             break;
-        }
         }
     }
 

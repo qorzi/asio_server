@@ -1,5 +1,7 @@
 #include "network_event_handler.hpp"
 #include "connection.hpp"
+#include "reactor.hpp"
+#include <nlohmann/json.hpp>
 #include <iostream>
 
 using json = nlohmann::json;
@@ -77,16 +79,6 @@ void NetworkEventHandler::handle_join(const Event& event)
             ev.main_type = MainEventType::GAME;
             ev.sub_type = (uint16_t)GameSubType::ROOM_CREATE;
             Reactor::get_instance().enqueue_event(ev);
-        }
-        else {
-            // 대기 타이머 스타트 이벤트
-            if (waiting_count == 1) {
-                // 처음으로 1명 대기? => start waiting timer
-                Event ev;
-                ev.main_type = MainEventType::GAME;
-                ev.sub_type  = (uint16_t)GameSubType::WAITING_TIMER_START;
-                Reactor::getInstance().enqueue_event(ev);
-            }
         }
 
     } catch (std::exception& e) {
