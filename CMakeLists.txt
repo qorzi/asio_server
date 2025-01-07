@@ -7,8 +7,6 @@ set(CMAKE_CXX_STANDARD 17)
 # Boost 라이브러리 사용 설정
 find_package(Boost REQUIRED COMPONENTS system)
 
-include_directories(${Boost_INCLUDE_DIRS} src)
-
 # nlohmann/json 추가
 include(FetchContent)
 FetchContent_Declare(
@@ -18,22 +16,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
-# 소스 파일
+# 소스 경로 설정
+set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(HANDLER_DIR ${SRC_DIR}/handler)
+
+# 메인 소스 파일
 set(SOURCES
-    src/main.cpp
-    src/game_server_app.cpp
-    # 통신 처리
-    src/reactor.cpp
-    src/connection.cpp
-    src/thread_pool.cpp
-    src/connection_manager.cpp
-    # 게임 처리
-    src/game_manager.cpp
-    src/room.cpp
-    src/map.cpp
-    src/player.cpp
-    # 핸들러
-    src/event_handler.cpp
+    ${SRC_DIR}/main.cpp
+    ${SRC_DIR}/game_server_app.cpp
+    ${SRC_DIR}/reactor.cpp
+    ${SRC_DIR}/connection.cpp
+    ${SRC_DIR}/thread_pool.cpp
+    ${SRC_DIR}/connection_manager.cpp
+    ${SRC_DIR}/game_manager.cpp
+    ${SRC_DIR}/room.cpp
+    ${SRC_DIR}/map.cpp
+    ${SRC_DIR}/player.cpp
+    ${HANDLER_DIR}/network_event_handler.cpp
+    ${HANDLER_DIR}/game_event_handler.cpp
 )
 
 # 타겟 생성

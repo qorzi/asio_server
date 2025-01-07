@@ -5,20 +5,44 @@
 #include <vector>
 #include <memory>
 #include <optional>
+#include <string>
 
-#include "header.hpp"
-
-using boost::asio::ip::tcp;
-
+// 전방 선언
 class Connection;
 
-enum class EventType { REQUEST, WRITE, CLOSE, ERROR };
+enum class MainEventType : uint16_t {
+    NETWORK = 1,
+    GAME    = 2,
+    // ... etc
+};
 
+enum class NetworkSubType : uint16_t {
+    JOIN  = 101,
+    LEFT  = 102,
+    CLOSE = 103,
+    // ... etc
+};
+
+enum class GameSubType : uint16_t {
+    ROOM_CREATE          = 201, // 방 생성
+    GAME_START_COUNTDOWN = 202, // 대기화면 후, 카운트다운
+    GAME_START           = 203, // 카운트다운=0 → 게임 시작
+    PLAYER_MOVED         = 204, // 플레이어가 이동
+    // ... etc
+};
+
+// “통합” 이벤트 구조
 struct Event {
-    EventType type;
-    std::optional<std::weak_ptr<Connection>> connection; // 이벤트 종류에 따라 커넥션이 없을 수 있음 ( 서버 자체 이벤트 )
-    RequestType request_type = RequestType::UNKNOWN; // 리퀘스트 타입 (REQUEST 이벤트에서만 사용)
-    std::vector<char> data; // data 또는 json 바디
+    MainEventType main_type;      // NETWORK or GAME
+    uint16_t sub_type;            // NetworkSubType or GameSubType
+
+    // 네트워크 이벤트라면 connection이 있을 수 있음
+    std::optional<std::weak_ptr<Connection>> connection;
+
+    // 추가 데이터: json/문자열/room_id 등
+    std::vector<char> data; 
+    int room_id = -1;        // 룸 식별자
+    std::string player_id;   // 플레이어 식별자
 };
 
 #endif // EVENT_HPP

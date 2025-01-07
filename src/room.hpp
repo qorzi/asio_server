@@ -25,8 +25,6 @@ public:
     bool remove_player(std::shared_ptr<Player> player);
     const std::vector<std::shared_ptr<Player>>& get_players() const;
 
-    void start_game();
-
     // 메시지 브로드캐스트
     void broadcast_message(const std::string& message);
 
@@ -39,8 +37,6 @@ private:
     std::mutex mutex_;
 
     void initialize_maps();
-
-    void update_game_state();  // 미구현
 };
 
 #endif // ROOM_HPP

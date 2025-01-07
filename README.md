@@ -5,7 +5,7 @@
 ```plain
 asio_server/
 ├── CMakeLists.txt         # CMake 빌드 설정 파일
-├── src/                   # 소스 코드 폴더
+├── src/
 │   ├── main.cpp
 │   ├── game_server_app.hpp
 │   ├── game_server_app.cpp
@@ -19,16 +19,19 @@ asio_server/
 │   ├── thread_pool.cpp
 │   ├── header.hpp         # Header 헤더 (통신에 사용될 헤더)
 │   ├── event.hpp
-│   ├── event_handler.hpp
-│   ├── event_handler.cpp
-│   ├── gama_manager.hpp
-│   ├── gama_manager.cpp
+│   ├── game_manager.hpp
+│   ├── game_manager.cpp
 │   ├── room.hpp
 │   ├── room.cpp
 │   ├── map.hpp
 │   ├── map.cpp
 │   ├── player.hpp
-│   └── player.cpp
+│   ├── player.cpp
+│   └── handler/
+│       ├── network_event_handler.hpp
+│       ├── network_event_handler.cpp
+│       ├── game_event_handler.hpp
+│       ├── game_event_handler.cpp
 ├── scripts/               # 스크립트 폴더
 │   ├── build/             # 빌드 아티팩트 생성 폴더 (빌드 시 자동 생성)
 │   ├── setup.sh           # 개발 환경 세팅 스크립트
@@ -71,7 +74,8 @@ asio_server/
 ## 서버 시나리오
 ### 게임 참가
 - 서버에 연결된 플레이어가 게임 참가를 요청하면, 플레이어는 대기열에 등록된다.
+    - 플레이어는 대기를 중단할 수 있다.
 - 플레이어의 수가 5명 이상이라면, 즉시 방을 생성한다.
-- 플레이어의 수가 5명 미만이라면, 30초 동안 대기한다.
-    - 30초 대기 이후, 인원이 5명 미만이여도 방이 생성된다. (대기열에 인원이 없으면, 생성되지 않는다.)
-- 방 생성 후, 카운트다운 5초 이후 게임이 시작된다.
+    - 플레이어가 5명 미만이라면, 방은 생성되지 않는다.
+- 방 생성 후, 대기화면에서 카운트다운 5초 이후 게임이 시작된다.
+- 게임 시작 후, 플레이어는 이동할 수 있다.

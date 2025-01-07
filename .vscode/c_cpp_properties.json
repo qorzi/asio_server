@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/include"
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/src/event_handler"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang",

@@ -78,21 +78,6 @@ void Room::broadcast_message(const std::string& message) {
     }
 }
 
-void Room::start_game() {
-    std::cout << "[DEBUG][Room:" << id_ << "] Game started.\n";
-
-    // 5초 후, 게임 시작
-    auto countdown_timer = std::make_shared<boost::asio::steady_timer>(ioc_);
-    countdown_timer->expires_after(std::chrono::seconds(5));
-    auto self = shared_from_this();
-    countdown_timer->async_wait([this, self, countdown_timer](auto ec){
-       if (!ec) {
-          std::cout << "[DEBUG][Room:" << id_ << "] Countdown finished. Let's REALLY start.\n";
-          // 추가 처리
-       }
-    });
-}
-
 void Room::update_game_state() {
     // 미구현
 }
