@@ -4,30 +4,55 @@
 #include "point.hpp"
 #include <string>
 #include <vector>
-#include <unordered_map>
+#include <mutex>
 #include <memory>
-#include <cstdlib>
-#include <algorithm>
+#include "player.hpp"
 
+/**
+ * Map
+ *  - 맵 내 플레이어 목록
+ *  - 포탈, 벽, start/end 등 지형 정보
+ */
 struct Portal {
-    Point position;                  // 포탈 위치
-    std::string name;                // 포탈 이름 (예: "A-1")
-    std::string linked_map_name;     // 연결된 맵 이름 (예: "B")
+    Point position;
+    std::string name;
+    std::string linked_map_name;
 };
 
-class Map {
+class Map : public std::enable_shared_from_this<Map> {
 public:
-    std::string name;                     // 맵 이름 (예: A, B, C)
-    Point start_point;                    // 시작 포인트
-    Point end_point;                      // 엔드 포인트 (마지막 맵만 해당)
-    std::vector<Portal> portals;          // 포탈 정보
-    int max_width;                        // 맵 최대 가로 크기
-    int max_height;                       // 맵 최대 세로 크기
+    std::string name;
+    Point start_point;
+    Point end_point;
+    int max_width;
+    int max_height;
 
+    // 포탈/장애물 등
+    std::vector<Portal> portals;
+
+    // 생성자
     Map(const std::string& name, int width, int height);
-    std::string generate_random_portal(const std::string& linked_map_name);     // 포탈 랜덤 생성
-    bool is_portal(const Point& position) const;                                 // 현재 위치가 포탈인지 확인
-    bool is_valid_position(const Point& position) const;                         // 유효한 위치인지 확인
+
+    // 포탈
+    std::string generate_random_portal(const std::string& linked_map_name);
+    bool is_portal(const Point& pos) const;
+
+    // 이동 가능 확인
+    bool is_valid_position(const Point& pos) const;
+
+    // 플레이어 관리
+    bool add_player(std::shared_ptr<Player> p);
+    bool remove_player(std::shared_ptr<Player> p);
+    std::shared_ptr<Player> find_player(const std::string& player_id);
+
+    // 맵 내부 브로드캐스트
+    void broadcast_in_map(const std::string& msg);
+
+private:
+    std::mutex map_mutex_;
+    std::vector<std::shared_ptr<Player>> map_players_;
+    // TODO: 벽(Obstacle) 목록, ex: std::vector<Rect> obstacles_;
+    //       bool is_blocked(Point pos) etc.
 };
 
-#endif // MAP_HPP
+#endif

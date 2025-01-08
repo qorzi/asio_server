@@ -1,5 +1,7 @@
 #include "utils.hpp"
 #include "header.hpp"
+#include <vector>
+#include <cstring>
 
 // 직렬화 헬퍼 함수
 std::string Utils::create_response_string(MainEventType main_type, uint16_t sub_type, const std::string& body) {

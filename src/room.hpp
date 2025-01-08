@@ -1,41 +1,47 @@
 #ifndef ROOM_HPP
 #define ROOM_HPP
 
-#include <boost/asio/steady_timer.hpp>
 #include <memory>
 #include <vector>
-#include <unordered_map>
 #include <mutex>
-#include <atomic>
-#include <functional>
-
 #include "map.hpp"
 #include "player.hpp"
 
-// 전방 선언
+/**
+ * Room
+ *  - 여러 Map(A/B/C 등)을 보유
+ *  - 플레이어 목록은 각 Map이 관리
+ *  - 방 전체에서 "플레이어 찾기 / 제거" 등의 함수 제공
+ */
 class Room : public std::enable_shared_from_this<Room> {
 public:
     const int id_;
 
-    Room(int id);
+    explicit Room(int id);
 
-    // Map 초기화 함수
+    // 맵 초기화 (A/B/C 생성, etc.)
     void initialize_maps();
 
-    // 플레이어 관련 함수
-    bool add_player(std::shared_ptr<Player> player);
-    bool remove_player(std::shared_ptr<Player> player);
-    std::shared_ptr<Player> find_player(const std::string& player_id);
-    const std::vector<std::shared_ptr<Player>>& get_players() const;
+    // 플레이어 "방 입장": 시작 맵(예: maps_[0])에 배정
+    // (핸들러에서 편하게 사용)
+    bool join_player(std::shared_ptr<Player> player);
 
-    // 메시지 브로드캐스트
+    // 방 전체에서 플레이어를 찾음(모든 맵 검색)
+    std::shared_ptr<Player> find_player(const std::string& player_id);
+
+    // 방 전체에서 플레이어 제거(게임에서 이탈) 
+    //  -> 어떤 맵에 있는지 찾아 remove_player
+    bool remove_player(std::shared_ptr<Player> player);
+
+    // 편의 함수: 방 전체에 broadcast (각 맵의 플레이어 전체)
     void broadcast_message(const std::string& message);
+
+    // 맵 접근
+    std::shared_ptr<Map> get_map_by_name(const std::string& name);
 
 private:
     std::vector<std::shared_ptr<Map>> maps_;
-    std::unordered_map<std::string, std::shared_ptr<Map>> portal_links_;
-    std::vector<std::shared_ptr<Player>> players_;
-    std::mutex mutex_;
+    std::mutex room_mutex_; // protect maps_ if needed
 };
 
 #endif // ROOM_HPP

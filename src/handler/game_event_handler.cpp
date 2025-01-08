@@ -1,6 +1,7 @@
 #include "game_event_handler.hpp"
 #include "room.hpp"
 #include "reactor.hpp"
+#include "utils.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
 
@@ -21,7 +22,7 @@ void GameEventHandler::handle_event(const Event& event)
     case GameSubType::ROOM_CREATE:
         handle_room_create(event);
         break;
-    case GameSubType::GAME_START_COUNTDOWN:
+    case GameSubType::GAME_COUNTDOWN:
         handle_game_start_countdown(event);
         break;
     case GameSubType::GAME_START:
@@ -49,6 +50,7 @@ void GameEventHandler::handle_room_create(const Event& ev)
         std::cout << "[GameEventHandler] handle_room_create but no players.\n";
         return;
     }
+
     // 2) room_id
     int rid = game_manager_.current_room_id++;
     auto room = game_manager_.create_room(rid);
@@ -56,22 +58,29 @@ void GameEventHandler::handle_room_create(const Event& ev)
     // 3) 맵 초기화
     room->initialize_maps();
 
-    // 4) 플레이어 add
+    // 4) 플레이어 add (자동으로 첫 맵(A) 등에 배정)
     for (auto& p : players) {
-        room->add_player(p);
-        // 대기화면 이동 명령
-        p->send_message(R"({"action":"waiting_screen","room_id":)" + std::to_string(rid) + "}");
+        // 새 구조: Room::join_player() 이용
+        room->join_player(p); 
     }
-    room->broadcast_message("[ROOM] Created room " + std::to_string(rid) + ", going to waiting screen...");
+    // 방 전체 브로드캐스트 (대기화면 이동 명령)
+    {
+        nlohmann::json broadcast_msg {
+            {"action", "room_create"},
+            {"room_id", std::to_string(rid)}
+        };
+        std::string body = broadcast_msg.dump();
+        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::ROOM_CREATE, body);
+        room->broadcast_message(resp);
+    }
 
     // 5) 다음 이벤트: GAME_START_COUNTDOWN
-    //   - room_id
+    //    - room_id
     Event countEv;
     countEv.main_type = MainEventType::GAME;
-    countEv.sub_type  = (uint16_t)GameSubType::GAME_START_COUNTDOWN;
+    countEv.sub_type  = (uint16_t)GameSubType::GAME_COUNTDOWN;
     countEv.room_id   = rid;
-    // 카운트다운 5초 (가령 data[0]에 저장 or JSON)
-    // 여기서는 예시로 data에 "5" ASCII
+    // 카운트다운 5초 (예: data="5")
     std::string countdown_val = "5"; 
     countEv.data.assign(countdown_val.begin(), countdown_val.end());
 
@@ -96,9 +105,17 @@ void GameEventHandler::handle_game_start_countdown(const Event& ev)
     int remaining = std::stoi(str);
 
     // 2) 카운트다운 브로드캐스트
-    room->broadcast_message("[COUNTDOWN] " + std::to_string(remaining) + " seconds left...");
+    {
+        nlohmann::json broadcast_msg {
+            {"action", "count_down"},
+            {"count", str}
+        };
+        std::string body = broadcast_msg.dump();
+        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::GAME_COUNTDOWN, body);
+        room->broadcast_message(resp);
+    }
 
-    // 3) 남은 시간 확인 및 게임 시작 이벤트
+    // 3) 남은 시간 확인 => 0이면 GAME_START
     if (remaining <= 0) {
         // GAME_START
         Event startEv;
@@ -109,7 +126,7 @@ void GameEventHandler::handle_game_start_countdown(const Event& ev)
         return;
     }
 
-    // 4) 1초 타이머 감산
+    // 4) 1초 후, 남은초-1 로 재귀 이벤트
     auto timer = std::make_shared<boost::asio::steady_timer>(ioc_);
     timer->expires_after(std::chrono::seconds(1));
     timer->async_wait([this, timer, room_id=ev.room_id, remaining](auto ec){
@@ -118,7 +135,7 @@ void GameEventHandler::handle_game_start_countdown(const Event& ev)
             int nextSec = remaining - 1;
             Event next;
             next.main_type = MainEventType::GAME;
-            next.sub_type  = (uint16_t)GameSubType::GAME_START_COUNTDOWN;
+            next.sub_type  = (uint16_t)GameSubType::GAME_COUNTDOWN;
             next.room_id   = room_id;
             auto s = std::to_string(nextSec);
             next.data.assign(s.begin(), s.end());
@@ -140,30 +157,171 @@ void GameEventHandler::handle_game_start(const Event& ev)
         std::cerr << "[GameEventHandler] handle_game_start: no room.\n";
         return;
     }
-    room->broadcast_message("[GAME] Start now!");
+    // start broadcast
+    {
+        nlohmann::json broadcast_msg {
+            {"action", "game_start"},
+        };
+        std::string body = broadcast_msg.dump();
+        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_MOVED, body);
+        room->broadcast_message(resp);
+    }
 }
 
 /**
  * PLAYER_MOVED:
  * - ev.data: JSON {"x":..., "y":...}
- * - update player position
- * - broadcast to all
+ * - 1) 플레이어 위치 검증(맵 범위, 이동 범위, 벽 등)
+ * - 2) 이동
+ * - 3) 같은 맵 플레이어에게만 이동 정보 브로드캐스트
+ * - 4) 도착 확인
  */
 void GameEventHandler::handle_player_moved(const Event& ev)
 {
     auto room = game_manager_.find_room(ev.room_id);
     if(!room) return;
+
     auto player = room->find_player(ev.player_id);
     if(!player) return;
 
     // parse pos
-    // ex) JSON
     std::string str(ev.data.begin(), ev.data.end());
     auto parsed = nlohmann::json::parse(str);
     int nx = parsed["x"].get<int>();
     int ny = parsed["y"].get<int>();
 
-    player->update_position({nx, ny});
-    room->broadcast_message("[ROOM] Player " + ev.player_id + " moved to (" 
-                            + std::to_string(nx) + "," + std::to_string(ny) + ")");
+    // 현재 맵
+    auto cur_map = player->current_map_.lock();
+    if(!cur_map) {
+        // 플레이어가 맵이 없다고? 이상 상황
+        nlohmann::json broadcast_msg {
+            {"error", "unknown"},
+            {"message", "No current map for player"}
+        };
+        std::string body = broadcast_msg.dump();
+        auto resp = Utils::create_response_string(MainEventType::ERROR, (uint16_t)ErrorSubType::UNKNOWN, body);
+        player->send_message(resp);
+        return;
+    }
+
+    // 1) 위치 검증: 범위 / 벽(추후) 
+    Point newPos{nx, ny};
+    if(!cur_map->is_valid_position(newPos) || !player->is_valid_position(newPos)) {
+        // 응답: invalid pos
+        nlohmann::json broadcast_msg {
+            {"error", "unknown"},
+            {"message", "Invalid position."}
+        };
+        std::string body = broadcast_msg.dump();
+        auto resp = Utils::create_response_string(MainEventType::ERROR, (uint16_t)ErrorSubType::UNKNOWN, body);
+        player->send_message(resp);
+        return;
+    }
+
+    // (벽 체크) => if(cur_map->is_blocked({nx,ny})) ...
+    // ...
+
+    // 2) 이동
+    player->update_position(newPos);
+
+    // 3) 해당 맵 broadcast
+    {
+        nlohmann::json broadcast_msg {
+            {"action", "player_moved"},
+            {"player_id", player->id_},
+            {"x", nx},
+            {"y", ny},
+            {"map", cur_map->name}
+        };
+        std::string body = broadcast_msg.dump();
+        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_MOVED, body);
+        cur_map->broadcast_in_map(resp);
+    }
+
+    // 4) 도착인지 체크 (end_point)
+    //    - 마지막 맵인 경우, end_point={299,299} etc.
+    //    TODO: 모든 플레이어 도착 시, 게임 종료.
+    if(cur_map->name == "C" // 마지막 맵
+       && newPos == cur_map->end_point)
+    {
+        // 플레이어가 도착 => 게임 종료(또는 별도 rank)
+        // remove from map, broadcast "finished"
+        cur_map->remove_player(player);
+        player->is_finished_ = true;
+
+        // broadcast
+        nlohmann::json broadcast_msg {
+            {"action", "player_finished"},
+            {"player_id", player->id_},
+            {"total_dist", player->total_distance_}
+        };
+        std::string body = broadcast_msg.dump();
+                auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_FINISHED, body);
+        room->broadcast_message(resp);
+
+        // [TODO] 모든 플레이어 도착 시, 게임 종료 이벤트
+        // 예: check if "room->allPlayersFinished()" => enqueue GAME_END, etc.
+        // ...
+        return;
+    }
+
+    // 5) 포탈인지 체크 => 다음 맵 이동
+    if(cur_map->is_portal(newPos)) {
+
+        // old map remove
+        bool removed = cur_map->remove_player(player);
+        if(removed) {
+            nlohmann::json broadcast_msg {
+                {"action", "player_come_out_map"},
+                {"player_id", player->id_},
+                {"map", cur_map->name}
+            };
+            std::string body = broadcast_msg.dump();
+            auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_COME_OUT_MAP, body);
+            cur_map->broadcast_in_map(resp);
+        }
+
+        // 포탈의 linked_map_name 찾기
+        std::string linked_map="";
+        for(auto& pt : cur_map->portals) {
+            if(pt.position == player->position_) {
+                linked_map = pt.linked_map_name;
+                break;
+            }
+        }
+        if(!linked_map.empty()) {
+            auto new_map = room->get_map_by_name(linked_map);
+            if(new_map) {
+                new_map->add_player(player);
+                player->current_map_ = new_map;
+                // 새 맵의 start_point로 위치를 업데이트
+                player->update_position(new_map->start_point);
+
+                // broadcast
+                nlohmann::json broadcast_msg {
+                    {"action","player_come_in_map"},
+                    {"player_id",player->id_},
+                    {"map", new_map->name},
+                    {"x", player->position_.x},
+                    {"y", player->position_.y}
+                };
+                auto body = broadcast_msg.dump();
+                auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_COME_IN_MAP, body);
+                new_map->broadcast_in_map(resp);
+            } else {
+                // rollback?
+                cur_map->add_player(player);
+                player->current_map_ = cur_map;
+
+                //broadcast
+                nlohmann::json broadcast_msg {
+                    {"error", "unknown"},
+                    {"message", "Portal leads to unknown map."}
+                };
+                std::string body = broadcast_msg.dump();
+                auto resp = Utils::create_response_string(MainEventType::ERROR, (uint16_t)ErrorSubType::UNKNOWN, body);
+                player->send_message(resp);
+            }
+        }
+    }
 }

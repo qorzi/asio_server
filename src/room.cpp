@@ -1,15 +1,11 @@
 #include "room.hpp"
-#include "player.hpp"
-
-#include <thread>
 #include <iostream>
+#include <algorithm>
 
 Room::Room(int id)
     : id_(id)
 {
-    std::cout << "[DEBUG][Room:" << id << "] Room constructor called.\n";
-    // 초기화
-    initialize_maps();
+    std::cout << "[DEBUG][Room:" << id_ << "] Room constructor called.\n";
 }
 
 void Room::initialize_maps() {
@@ -22,67 +18,99 @@ void Room::initialize_maps() {
 
     auto mapC = std::make_shared<Map>("C", 300, 300);
     mapC->start_point = {1, 1};
-    mapC->end_point = {299, 299};
+    mapC->end_point   = {299, 299};
 
-    maps_ = {mapA, mapB, mapC};
+    // 포탈(예시)
+    mapA->generate_random_portal("B");
+    mapB->generate_random_portal("C");
 
-    // 포탈 생성 및 연결
-    portal_links_[mapA->generate_random_portal(mapB->name)] = mapB;
-    portal_links_[mapB->generate_random_portal(mapC->name)] = mapC;
-}
+    // (원하면 여기서 mapA->initialize_obstacles() 등 벽 생성)
 
-bool Room::add_player(std::shared_ptr<Player> player) {
-    std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금
-
-    // 유저 추가
-    player->room_ = shared_from_this();
-    player->current_map_ = maps_[0]; // 첫 번째 맵으로 설정
-    player->position_ = maps_[0]->start_point;
-    players_.push_back(player);
-
-    // 디버그 메시지
-    std::cout << "[DEBUG][Room:" << id_ << "] Player " << player->id_
-              << " added. Current player count: " << players_.size() << "\n";
-
-    return true;
-}
-
-bool Room::remove_player(std::shared_ptr<Player> player) {
-    std::lock_guard<std::mutex> lock(mutex_); // 뮤텍스 잠금
-    auto it = std::find(players_.begin(), players_.end(), player);
-
-    if (it != players_.end()) {
-        players_.erase(it);
-        std::cout << "[DEBUG][Room:" << id_ << "] Player " << player->id_
-                  << " removed. Current player count: " << players_.size() << "\n";
-        return true;
+    {
+        std::lock_guard<std::mutex> lock(room_mutex_);
+        maps_.push_back(mapA);
+        maps_.push_back(mapB);
+        maps_.push_back(mapC);
     }
-
-    std::cout << "[DEBUG][Room:" << id_ << "] remove_player() failed: player not found.\n";
-    return false;
 }
 
-std::shared_ptr<Player> Room::find_player(const std::string& player_id) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    for (const auto& player : players_) {
-        if (player->id_ == player_id) {
-            return player;
-        }
+/**
+ * 방에 참가시키면 "시작 맵" (maps_[0])에 배정
+ * (핸들러 로직에서 호출)
+ */
+bool Room::join_player(std::shared_ptr<Player> player)
+{
+    std::lock_guard<std::mutex> lock(room_mutex_);
+    if (maps_.empty()) {
+        std::cerr << "[Room:" << id_ << "] no maps, cannot join.\n";
+        return false;
+    }
+    // 시작 맵(예: 첫 맵)
+    auto start_map = maps_[0];
+    bool ok = start_map->add_player(player);
+    if (ok) {
+        player->current_map_ = start_map; // 플레이어 현재 맵
+        // 디버그 메시지
+        std::cout << "[Room:" << id_ << "] Player " << player->id_ << " joined start_map=" 
+                  << start_map->name << "\n";
+    }
+    return ok;
+}
+
+/**
+ * 방 전체에서 특정 플레이어 찾기
+ * (모든 맵을 뒤져서 검색)
+ */
+std::shared_ptr<Player> Room::find_player(const std::string& player_id)
+{
+    std::lock_guard<std::mutex> lock(room_mutex_);
+    for (auto& m : maps_) {
+        auto p = m->find_player(player_id);
+        if (p) return p;
     }
     return nullptr;
 }
 
-const std::vector<std::shared_ptr<Player>>& Room::get_players() const {
-    return players_;
+/**
+ * 플레이어가 게임에서 이탈(LEFT / CLOSE) 시
+ * 방 안 모든 맵에서 제거
+ */
+bool Room::remove_player(std::shared_ptr<Player> player)
+{
+    std::lock_guard<std::mutex> lock(room_mutex_);
+    bool removed = false;
+    for (auto& m : maps_) {
+        bool r = m->remove_player(player);
+        if(r) {
+            std::cout << "[Room:" << id_ << "] Removed player " 
+                      << player->id_ << " from map " << m->name << "\n";
+            removed = true;
+        }
+    }
+    return removed;
 }
 
-void Room::broadcast_message(const std::string& message) {
-    std::lock_guard<std::mutex> lock(mutex_); // 플레이어 리스트 보호
-
-    std::cout << "[DEBUG][Room:" << id_ << "] Broadcasting message to " 
-              << players_.size() << " players.\n";
-
-    for (const auto& player : players_) {
-        player->send_message(message); // 메시지 전송
+/**
+ * 방 전체 브로드캐스트:
+ * 모든 맵에 있는 플레이어에게 메시지 전송
+ */
+void Room::broadcast_message(const std::string& message)
+{
+    std::lock_guard<std::mutex> lock(room_mutex_);
+    for (auto& m : maps_) {
+        m->broadcast_in_map(message);
     }
+}
+
+/**
+ * 특정 맵 이름으로 검색
+ */
+std::shared_ptr<Map> Room::get_map_by_name(const std::string& name)
+{
+    std::lock_guard<std::mutex> lock(room_mutex_);
+    auto it = std::find_if(maps_.begin(), maps_.end(), [&](auto& mm){
+        return (mm->name == name);
+    });
+    if(it != maps_.end()) return *it;
+    return nullptr;
 }

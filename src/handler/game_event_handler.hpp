@@ -4,6 +4,11 @@
 #include "event.hpp"
 #include "game_manager.hpp"
 
+/**
+ * GameEventHandler
+ * - GAME 타입 이벤트를 처리하는 클래스
+ * - 방 생성, 카운트다운, 게임 시작, 플레이어 이동 등을 담당
+ */
 class GameEventHandler {
 public:
     // 생성자에서 GameManager를 받아서 저장 (DI)

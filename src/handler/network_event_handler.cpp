@@ -1,6 +1,7 @@
 #include "network_event_handler.hpp"
 #include "connection.hpp"
 #include "reactor.hpp"
+#include "utils.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
 
@@ -68,8 +69,15 @@ void NetworkEventHandler::handle_join(const Event& event)
         game_manager_.add_waiting_player(player);
 
         // 5) 여기서는 간단히 join 완료 알림
-        std::string ack = R"({"result":"ok","action":"join"})";
-        conn->async_write(ack);
+        {
+            nlohmann::json ack_msg {
+                {"action", "join"},
+                {"result", "ok"}
+            };
+            std::string body = ack_msg.dump();
+            auto resp = Utils::create_response_string(MainEventType::NETWORK, (uint16_t)NetworkSubType::JOIN, body);
+            conn->async_write(resp);
+        }
 
         // 6) 인원 수 확인 -> 5명 이상이면 ROOM_CREATE 이벤트
         size_t waiting_count = game_manager_.waiting_count();
@@ -101,9 +109,22 @@ void NetworkEventHandler::handle_left(const Event& event)
         // 대기열에서 제거
         bool removed = game_manager_.remove_waiting_player(player);
         if (removed) {
-            conn->async_write(R"({"result":"ok","action":"left","msg":"removed from waiting list"})");
+            nlohmann::json ack_msg {
+                {"action", "left"},
+                {"result", true},
+                {"message", "removed from waiting list"}
+            };
+            std::string body = ack_msg.dump();
+            auto resp = Utils::create_response_string(MainEventType::NETWORK, (uint16_t)NetworkSubType::LEFT, body);
+            conn->async_write(resp);
         } else {
-            conn->async_write(R"({"result":"not_found","action":"left","msg":"player not in waiting list"})");
+            nlohmann::json ack_msg {
+                {"error", "unknown"},
+                {"message", "player not in waiting list"}
+            };
+            std::string body = ack_msg.dump();
+            auto resp = Utils::create_response_string(MainEventType::ERROR, (uint16_t)ErrorSubType::UNKNOWN, body);
+            conn->async_write(resp);
         }
 
     } catch (std::exception& e) {

@@ -13,6 +13,7 @@ class Connection;
 enum class MainEventType : uint16_t {
     NETWORK = 1,
     GAME    = 2,
+    ERROR   = 3,
     // ... etc
 };
 
@@ -25,9 +26,17 @@ enum class NetworkSubType : uint16_t {
 
 enum class GameSubType : uint16_t {
     ROOM_CREATE          = 201, // 방 생성
-    GAME_START_COUNTDOWN = 202, // 대기화면 후, 카운트다운
+    GAME_COUNTDOWN       = 202, // 대기화면 후, 카운트다운
     GAME_START           = 203, // 카운트다운=0 → 게임 시작
     PLAYER_MOVED         = 204, // 플레이어가 이동
+    PLAYER_COME_IN_MAP   = 205, // 플레이어가 맵에 입장
+    PLAYER_COME_OUT_MAP  = 206, // 플레이어가 맵에서 나감
+    PLAYER_FINISHED      = 207, // 플레이어가 도착
+    // ... etc
+};
+
+enum class ErrorSubType : uint16_t {
+    UNKNOWN = 301, // 알 수 없는 에러
     // ... etc
 };
 
