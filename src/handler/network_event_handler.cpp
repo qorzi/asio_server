@@ -72,7 +72,7 @@ void NetworkEventHandler::handle_join(const Event& event)
         {
             nlohmann::json ack_msg {
                 {"action", "join"},
-                {"result", "ok"}
+                {"result", true}
             };
             std::string body = ack_msg.dump();
             auto resp = Utils::create_response_string(MainEventType::NETWORK, (uint16_t)NetworkSubType::JOIN, body);
@@ -120,6 +120,7 @@ void NetworkEventHandler::handle_left(const Event& event)
         } else {
             nlohmann::json ack_msg {
                 {"error", "unknown"},
+                {"result", false},
                 {"message", "player not in waiting list"}
             };
             std::string body = ack_msg.dump();

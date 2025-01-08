@@ -23,13 +23,21 @@ void GameEventHandler::handle_event(const Event& event)
         handle_room_create(event);
         break;
     case GameSubType::GAME_COUNTDOWN:
-        handle_game_start_countdown(event);
+        handle_game_countdown(event);
         break;
     case GameSubType::GAME_START:
         handle_game_start(event);
         break;
     case GameSubType::PLAYER_MOVED:
         handle_player_moved(event);
+        break;
+    case GameSubType::PLAYER_COME_IN_MAP:
+    case GameSubType::PLAYER_COME_OUT_MAP:
+    case GameSubType::PLAYER_FINISHED:
+        // 이벤트로 처리하지 않음 (통신 전용 이벤트)
+        break;
+    case GameSubType::GAME_END:
+        // 게임 종료 및 게임 이력 저장 등등
         break;
     default:
         std::cerr << "[GameEventHandler] Unknown sub_type=" << event.sub_type << "\n";
@@ -67,6 +75,7 @@ void GameEventHandler::handle_room_create(const Event& ev)
     {
         nlohmann::json broadcast_msg {
             {"action", "room_create"},
+            {"result", true},
             {"room_id", std::to_string(rid)}
         };
         std::string body = broadcast_msg.dump();
@@ -92,7 +101,7 @@ void GameEventHandler::handle_room_create(const Event& ev)
  * - ev.data에 남은 초 저장한다고 가정("5", "4", ...)
  * - 1초마다 broadcast, 남은초--, 0이면 GAME_START
  */
-void GameEventHandler::handle_game_start_countdown(const Event& ev)
+void GameEventHandler::handle_game_countdown(const Event& ev)
 {
     auto room = game_manager_.find_room(ev.room_id);
     if (!room) {
@@ -108,6 +117,7 @@ void GameEventHandler::handle_game_start_countdown(const Event& ev)
     {
         nlohmann::json broadcast_msg {
             {"action", "count_down"},
+            {"result", true},
             {"count", str}
         };
         std::string body = broadcast_msg.dump();
@@ -161,6 +171,7 @@ void GameEventHandler::handle_game_start(const Event& ev)
     {
         nlohmann::json broadcast_msg {
             {"action", "game_start"},
+            {"result", true}
         };
         std::string body = broadcast_msg.dump();
         auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_MOVED, body);
@@ -196,6 +207,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
         // 플레이어가 맵이 없다고? 이상 상황
         nlohmann::json broadcast_msg {
             {"error", "unknown"},
+            {"result", false},
             {"message", "No current map for player"}
         };
         std::string body = broadcast_msg.dump();
@@ -210,6 +222,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
         // 응답: invalid pos
         nlohmann::json broadcast_msg {
             {"error", "unknown"},
+            {"result", false},
             {"message", "Invalid position."}
         };
         std::string body = broadcast_msg.dump();
@@ -228,6 +241,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
     {
         nlohmann::json broadcast_msg {
             {"action", "player_moved"},
+            {"result", true},
             {"player_id", player->id_},
             {"x", nx},
             {"y", ny},
@@ -252,6 +266,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
         // broadcast
         nlohmann::json broadcast_msg {
             {"action", "player_finished"},
+            {"result", true},
             {"player_id", player->id_},
             {"total_dist", player->total_distance_}
         };
@@ -273,6 +288,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
         if(removed) {
             nlohmann::json broadcast_msg {
                 {"action", "player_come_out_map"},
+                {"result", true},
                 {"player_id", player->id_},
                 {"map", cur_map->name}
             };
@@ -300,6 +316,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
                 // broadcast
                 nlohmann::json broadcast_msg {
                     {"action","player_come_in_map"},
+                    {"result", true},
                     {"player_id",player->id_},
                     {"map", new_map->name},
                     {"x", player->position_.x},
@@ -316,6 +333,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
                 //broadcast
                 nlohmann::json broadcast_msg {
                     {"error", "unknown"},
+                    {"result", false},
                     {"message", "Portal leads to unknown map."}
                 };
                 std::string body = broadcast_msg.dump();

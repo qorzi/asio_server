@@ -32,6 +32,7 @@ enum class GameSubType : uint16_t {
     PLAYER_COME_IN_MAP   = 205, // 플레이어가 맵에 입장
     PLAYER_COME_OUT_MAP  = 206, // 플레이어가 맵에서 나감
     PLAYER_FINISHED      = 207, // 플레이어가 도착
+    GAME_END             = 208, // 게임 종료
     // ... etc
 };
 

@@ -23,7 +23,7 @@ private:
 
     // 서브 핸들러들
     void handle_room_create(const Event& ev);
-    void handle_game_start_countdown(const Event& ev);
+    void handle_game_countdown(const Event& ev);
     void handle_game_start(const Event& ev);
     void handle_player_moved(const Event& ev);
 };
