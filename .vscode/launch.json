@@ -5,7 +5,7 @@
             "name": "Debug with LLDB",
             "type": "lldb",
             "request": "launch",
-            "program": "${workspaceFolder}/scripts/build/asio_server", // 실행 파일 경로
+            "program": "${workspaceFolder}/build/asio_server", // 실행 파일 경로
             "args": [], // 필요시 실행 인자 추가
             "cwd": "${workspaceFolder}",
             "terminal": "integrated", // VSCode 내 통합 터미널 사용
