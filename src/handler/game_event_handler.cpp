@@ -188,11 +188,17 @@ void GameEventHandler::handle_game_start(const Event& ev)
  */
 void GameEventHandler::handle_player_moved(const Event& ev)
 {
-    auto room = game_manager_.find_room(ev.room_id);
-    if(!room) return;
+    auto player = ConnectionManager::get_instance().get_player_for_connection(ev.connection->lock());
+    if(!player) {
+        std::cerr << "[GameEventHandler] handle_player_moved: no player.\n";
+        return;
+    }
 
-    auto player = room->find_player(ev.player_id);
-    if(!player) return;
+    auto room = game_manager_.find_room(player->room_id_);
+    if(!room) {
+        std::cerr << "[GameEventHandler] handle_player_moved: no romm.\n";
+        return;
+    }
 
     // parse pos
     std::string str(ev.data.begin(), ev.data.end());
@@ -217,12 +223,16 @@ void GameEventHandler::handle_player_moved(const Event& ev)
 
     // 1) 위치 검증: 범위 / 벽(추후) 
     Point newPos{nx, ny};
+    std::cout << nx << " " << ny << '\n';
     if(!cur_map->is_valid_position(newPos) || !player->is_valid_position(newPos)) {
         // 응답: invalid pos
         nlohmann::json broadcast_msg {
-            {"error", "unknown"},
+            {"action", "player_moved"},
             {"result", false},
-            {"message", "Invalid position."}
+            {"player_id", player->id_},
+            {"x", player->position_.x},
+            {"y", player->position_.y},
+            {"map", cur_map->name}
         };
         std::string body = broadcast_msg.dump();
         auto resp = Utils::create_response_string(MainEventType::ERROR, (uint16_t)ErrorSubType::UNKNOWN, body);

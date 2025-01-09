@@ -27,7 +27,7 @@ bool Player::is_valid_position(const Point& pos) const {
     int dy = std::abs(pos.y - position_.y);
 
     // 상하좌우 한 칸만 이동했는지 확인
-    return (dx == 1 && dy == 0) || (dx == 0 && dy == 1);
+    return dx + dy == 1;
 }
 
 

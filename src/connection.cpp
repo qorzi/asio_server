@@ -149,6 +149,7 @@ void Connection::read_body_chunk(std::shared_ptr<std::vector<char>> body_buffer,
                     read_body_chunk(body_buffer, header, total);
                 } else {
                     // 완전히 읽음
+                    std::cout << "[Connection] Received packet: main_type={" << (int)header.main_type << "}, sub_type={" << (int)header.sub_type << "}, body_len={" << (int)header.body_length << "}\n";
                     // 패딩 제거
                     std::vector<char> actual_data(
                         body_buffer->begin(),
@@ -200,6 +201,7 @@ void Connection::async_write(const std::string& data) {
             if (!ec) {
                 // 쓰기 완료 -> WRITE 이벤트
                 // 필요 없음. - WRITE는 편리를 위해 바로 쓰도록 하는게 맞는것으로 보임.
+                std::cout << "[Connection] async_write is completed" << "\n";
             } else {
                 // 쓰기 에러 -> CLOSE로 처리
                 Event ev;

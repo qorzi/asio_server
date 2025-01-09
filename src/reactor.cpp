@@ -42,6 +42,7 @@ void Reactor::event_loop() {
         event_queue_.pop();
 
         // 각 EventType별로 작업 스케줄링
+        std::cout << "[Reactor] event_loop called: main_type={" << (int)event.main_type << "}, sub_type={" << (int)event.sub_type << "}\n";
         switch (event.main_type) {
         case MainEventType::NETWORK:
         {

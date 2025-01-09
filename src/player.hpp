@@ -12,6 +12,7 @@ class Player : public std::enable_shared_from_this<Player> {
 public:
     std::string id_;
     std::string name_;
+    int room_id_;
     Point position_;
     int total_distance_;
     bool is_finished_ = false;

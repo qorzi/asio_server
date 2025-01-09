@@ -50,6 +50,8 @@ bool Room::join_player(std::shared_ptr<Player> player)
     bool ok = start_map->add_player(player);
     if (ok) {
         player->current_map_ = start_map; // 플레이어 현재 맵
+        player->position_ = start_map->start_point;
+        player->room_id_ = id_;
         // 디버그 메시지
         std::cout << "[Room:" << id_ << "] Player " << player->id_ << " joined start_map=" 
                   << start_map->name << "\n";
