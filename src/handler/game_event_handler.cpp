@@ -82,7 +82,7 @@ void GameEventHandler::handle_room_create(const Event& ev)
         room->broadcast_message(resp);
     }
 
-    // 6) 다음 이벤트: GAME_START_COUNTDOWN
+    // 6) 다음 이벤트: GAME_COUNTDOWN
     //    - room_id
     Event countEv;
     countEv.main_type = MainEventType::GAME;
@@ -96,7 +96,7 @@ void GameEventHandler::handle_room_create(const Event& ev)
 }
 
 /**
- * GAME_START_COUNTDOWN:
+ * GAME_COUNTDOWN:
  * - ev.data에 남은 초 저장한다고 가정("5", "4", ...)
  * - 1초마다 broadcast, 남은초--, 0이면 GAME_START
  */
@@ -173,7 +173,7 @@ void GameEventHandler::handle_game_start(const Event& ev)
             {"result", true}
         };
         std::string body = broadcast_msg.dump();
-        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_MOVED, body);
+        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::GAME_START, body);
         room->broadcast_message(resp);
     }
 }
