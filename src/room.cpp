@@ -10,15 +10,15 @@ Room::Room(int id)
 
 void Room::initialize_maps() {
     // 맵 생성
-    auto mapA = std::make_shared<Map>("A", 300, 300);
+    auto mapA = std::make_shared<Map>("A", 15, 15);
     mapA->start_point = {1, 1};
 
-    auto mapB = std::make_shared<Map>("B", 300, 300);
+    auto mapB = std::make_shared<Map>("B", 15, 15);
     mapB->start_point = {1, 1};
 
-    auto mapC = std::make_shared<Map>("C", 300, 300);
+    auto mapC = std::make_shared<Map>("C", 15, 15);
     mapC->start_point = {1, 1};
-    mapC->end_point   = {299, 299};
+    mapC->end_point   = {14, 14};
 
     // 포탈(예시)
     mapA->generate_random_portal("B");

@@ -81,7 +81,7 @@ void NetworkEventHandler::handle_join(const Event& event)
 
         // 6) 인원 수 확인 -> 5명 이상이면 ROOM_CREATE 이벤트
         size_t waiting_count = game_manager_.waiting_count();
-        if (waiting_count >= 5) {
+        if (waiting_count >= 1) {
             // 이벤트 enqueue: ROOM_CREATE
             Event ev;
             ev.main_type = MainEventType::GAME;
