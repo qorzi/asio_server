@@ -71,19 +71,18 @@ void GameEventHandler::handle_room_create(const Event& ev)
         // 새 구조: Room::join_player() 이용
         room->join_player(p); 
     }
-    // 방 전체 브로드캐스트 (대기화면 이동 명령)
+
+    // 5) Room 전체 정보 브로드캐스팅팅 (대기화면 이동 명령)
     {
-        nlohmann::json broadcast_msg {
-            {"action", "room_create"},
-            {"result", true},
-            {"room_id", std::to_string(rid)}
-        };
+        nlohmann::json broadcast_msg = room->extracte_all_map_info();
+        broadcast_msg["action"] = "room_create";
+        broadcast_msg["result"] = true;
         std::string body = broadcast_msg.dump();
         auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::ROOM_CREATE, body);
         room->broadcast_message(resp);
     }
 
-    // 5) 다음 이벤트: GAME_START_COUNTDOWN
+    // 6) 다음 이벤트: GAME_START_COUNTDOWN
     //    - room_id
     Event countEv;
     countEv.main_type = MainEventType::GAME;

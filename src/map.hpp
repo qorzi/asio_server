@@ -2,11 +2,12 @@
 #define MAP_HPP
 
 #include "point.hpp"
+#include "player.hpp"
 #include <string>
 #include <vector>
 #include <mutex>
 #include <memory>
-#include "player.hpp"
+#include <nlohmann/json.hpp>
 
 /**
  * Map
@@ -44,6 +45,9 @@ public:
     bool add_player(std::shared_ptr<Player> p);
     bool remove_player(std::shared_ptr<Player> p);
     std::shared_ptr<Player> find_player(const std::string& player_id);
+
+    // 맵 정보 추출 함수 (to json)
+    nlohmann::json extracte_map_info() const;
 
     // 맵 내부 브로드캐스트
     void broadcast_in_map(const std::string& msg);

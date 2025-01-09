@@ -114,3 +114,31 @@ std::shared_ptr<Map> Room::get_map_by_name(const std::string& name)
     if(it != maps_.end()) return *it;
     return nullptr;
 }
+
+
+/**
+ * 룸의 모든 맵 정보를 JSON으로 구성
+ * {
+ *   "room_id": 2,
+ *   "maps": [
+ *     { ...mapA info... },
+ *     { ...mapB info... },
+ *     { ...mapC info... }
+ *   ]
+ * }
+ */
+nlohmann::json Room::extracte_all_map_info() const
+{
+    nlohmann::json j;
+    j["room_id"] = id_;
+
+    nlohmann::json maps_array = nlohmann::json::array();
+    {
+        std::lock_guard<std::mutex> lock(room_mutex_);
+        for(auto& m : maps_) {
+            maps_array.push_back(m->extracte_map_info());
+        }
+    }
+    j["maps"] = maps_array;
+    return j;
+}

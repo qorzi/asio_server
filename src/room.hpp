@@ -1,11 +1,12 @@
 #ifndef ROOM_HPP
 #define ROOM_HPP
 
+#include "map.hpp"
+#include "player.hpp"
 #include <memory>
 #include <vector>
 #include <mutex>
-#include "map.hpp"
-#include "player.hpp"
+#include <nlohmann/json.hpp>
 
 /**
  * Room
@@ -39,9 +40,12 @@ public:
     // 맵 접근
     std::shared_ptr<Map> get_map_by_name(const std::string& name);
 
+    // 맵 전체 정보 추출
+    nlohmann::json extracte_all_map_info() const;
+
 private:
     std::vector<std::shared_ptr<Map>> maps_;
-    std::mutex room_mutex_; // protect maps_ if needed
+    mutable std::mutex room_mutex_; // protect maps_ if needed
 };
 
 #endif // ROOM_HPP

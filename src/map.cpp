@@ -86,7 +86,6 @@ bool Map::remove_player(std::shared_ptr<Player> p)
     return false;
 }
 
-
 /**
  * 맵에서 특정 플레이어 찾기
  * 
@@ -98,6 +97,60 @@ std::shared_ptr<Player> Map::find_player(const std::string& player_id)
         if(pl->id_ == player_id) return pl;
     }
     return nullptr;
+}
+
+/** 
+ * 맵 정보를 JSON으로 구성
+ * {
+ *   "name": "A",
+ *   "width": 300,
+ *   "height":300,
+ *   "start": {"x":1,"y":1},
+ *   "end":   {"x":299,"y":299}, 
+ *   "portals": [
+ *       {"x":..., "y":..., "name":"A-1", "linked_map":"B"},
+ *       ...
+ *   ]
+ * }
+ */
+nlohmann::json Map::extracte_map_info() const
+{
+    nlohmann::json map_info;
+    map_info["name"]   = name;
+    map_info["width"]  = max_width;
+    map_info["height"] = max_height;
+
+    // start
+    {
+        nlohmann::json st;
+        st["x"] = start_point.x;
+        st["y"] = start_point.y;
+        map_info["start"] = st;
+    }
+    // end
+    {
+        nlohmann::json ed;
+        ed["x"] = end_point.x;
+        ed["y"] = end_point.y;
+        map_info["end"] = ed;
+    }
+
+    // portals
+    nlohmann::json portal_array = nlohmann::json::array();
+    for (auto& pt : portals) {
+        nlohmann::json pjson;
+        pjson["x"] = pt.position.x;
+        pjson["y"] = pt.position.y;
+        pjson["name"] = pt.name;
+        pjson["linked_map"] = pt.linked_map_name;
+        portal_array.push_back(pjson);
+    }
+    map_info["portals"] = portal_array;
+
+    // TODO: obstacles if any
+    // map_info["obstacles"] = ...
+
+    return map_info;
 }
 
 /**
