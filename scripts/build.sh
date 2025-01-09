@@ -5,9 +5,13 @@
 set -ex  # 실패 시 명령 출력 및 종료
 trap 'echo "Error on line $LINENO"' ERR  # 에러 발생 시 라인 출력
 
-BUILD_DIR="build"
 BUILD_TYPE="Release"  # 기본 빌드 타입은 Release
-SOURCE_DIR=$(dirname "$(dirname "$(realpath "$0")")") # 스크립트의 상위 디렉토리
+
+# 스크립트의 위치를 기준으로 프로젝트 루트 설정
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_DIR="$(dirname "$SCRIPT_DIR")"  # scripts/의 상위 디렉토리인 프로젝트 루트
+
+BUILD_DIR="${SOURCE_DIR}/build"  # 프로젝트 루트의 build 디렉토리
 
 # 빌드 타입 설정
 for arg in "$@"; do
