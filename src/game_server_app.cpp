@@ -1,5 +1,4 @@
 #include "game_server_app.hpp"
-#include "event_handler.hpp"
 #include <iostream>
 
 GameServerApp::GameServerApp(unsigned short port)
