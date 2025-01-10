@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cstdlib> // rand
 #include <stack>
+#include <queue>
+#include <set>
 #include <random>
 
 Map::Map(const std::string& name, int width, int height)
@@ -58,95 +60,133 @@ void Map::generate_random_obstacles(bool is_end)
     // 방향 벡터: 상, 하, 좌, 우
     const std::vector<Point> directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
 
-    // 미로 초기화: 모든 위치를 장애물로 설정
-    obstacles_.clear();
-    for (int x = 1; x <= max_width; ++x) {
-        for (int y = 1; y <= max_height; ++y) {
-            obstacles_.push_back({x, y});
+    // 최대 재시도 횟수 설정 (예: 10회)
+    const int MAX_ATTEMPTS = 10;
+    int attempt = 0;
+
+    Point main_target;
+
+    do {
+        if (attempt >= MAX_ATTEMPTS) {
+            throw std::runtime_error("최대 재시도 횟수를 초과하여 맵을 생성할 수 없습니다.");
         }
-    }
 
-    // 방문 처리 유틸리티
-    auto remove_obstacle = [&](const Point& pos) {
-        auto it = std::find(obstacles_.begin(), obstacles_.end(), pos);
-        if (it != obstacles_.end()) {
-            obstacles_.erase(it);
+        // 미로 초기화: 모든 위치를 장애물로 설정
+        obstacles_.clear();
+        for (int x = 1; x < max_width; ++x) {
+            for (int y = 1; y < max_height; ++y) {
+                obstacles_.push_back({x, y});
+            }
         }
-    };
 
-    std::random_device rd;
-    std::mt19937 rng(rd());
+        // 방문 처리 유틸리티
+        auto remove_obstacle = [&](const Point& pos) {
+            auto it = std::find(obstacles_.begin(), obstacles_.end(), pos);
+            if (it != obstacles_.end()) {
+                obstacles_.erase(it);
+            }
+        };
 
-    // 1. 더미 도착지점 생성
-    std::vector<Point> targets;
-    if (is_end) {
-        targets.push_back(end_point); // 종료 지점 포함
-    } else {
-        targets.push_back(portals_.front().position); // 포탈 포함 (첫번째 포탈만 포함)
-    }
+        std::random_device rd;
+        std::mt19937 rng(rd());
 
-    int additional_targets = std::max(1, (max_width * max_height) / 50); // 맵 크기에 따라 더미 지점 생성
-    while (targets.size() < additional_targets + 1) {
-        Point dummy_target = {rand() % max_width + 1, rand() % max_height + 1};
-        if (dummy_target != start_point && 
-            dummy_target != end_point && 
-            !is_portal(dummy_target) && 
-            std::find(targets.begin(), targets.end(), dummy_target) == targets.end()) {
-            targets.push_back(dummy_target);
+        // 1. 더미 도착지점 생성
+        std::vector<Point> targets;
+        if (is_end) {
+            main_target = end_point;
+            targets.push_back(end_point); // 종료 지점 포함
+        } else {
+            main_target = portals_.front().position;
+            targets.push_back(portals_.front().position); // 포탈 포함 (첫번째 포탈만 포함)
         }
-    }
 
-    // 2. 각 도착지점으로 경로 생성
-    for (const auto& target : targets) {
-        std::stack<Point> stack;
-        stack.push(start_point);
-        remove_obstacle(start_point);
+        int additional_targets = std::max(1, (max_width * max_height) / 50); // 맵 크기에 따라 더미 지점 생성
+        while (targets.size() < additional_targets + 1) {
+            Point dummy_target = {rand() % max_width + 1, rand() % max_height + 1};
+            if (dummy_target != start_point && 
+                dummy_target != end_point && 
+                !is_portal(dummy_target) && 
+                std::find(targets.begin(), targets.end(), dummy_target) == targets.end()) {
+                targets.push_back(dummy_target);
+            }
+        }
 
-        while (!stack.empty()) {
-            Point current = stack.top();
+        // 2. 각 도착지점으로 경로 생성
+        for (const auto& target : targets) {
+            std::stack<Point> stack;
+            stack.push(start_point);
+            remove_obstacle(start_point);
 
-            // 현재 위치에서 이동 가능한 랜덤한 방향 선택
-            std::vector<Point> neighbors;
-            for (const auto& dir : directions) {
-                Point next = {current.x + dir.x, current.y + dir.y};
-                if (next.x > 0 && next.y > 0 && next.x <= max_width && next.y <= max_height &&
-                    std::find(obstacles_.begin(), obstacles_.end(), next) != obstacles_.end()) {
-                    neighbors.push_back(next);
+            while (!stack.empty()) {
+                Point current = stack.top();
+
+                // 현재 위치에서 이동 가능한 랜덤한 방향 선택
+                std::vector<Point> neighbors;
+                for (const auto& dir : directions) {
+                    Point next = {current.x + dir.x, current.y + dir.y};
+                    if (next.x > 0 && next.y > 0 && next.x < max_width && next.y < max_height &&
+                        std::find(obstacles_.begin(), obstacles_.end(), next) != obstacles_.end()) {
+                        neighbors.push_back(next);
+                    }
+                }
+
+                if (!neighbors.empty()) {
+                    // 랜덤한 이웃 선택
+                    std::shuffle(neighbors.begin(), neighbors.end(), rng);
+                    Point next = neighbors.front();
+
+                    // 현재 위치와 다음 위치 사이의 길 제거
+                    remove_obstacle(next);
+                    stack.push(next);
+
+                    if (next == target) {
+                        break; // 목표에 도달하면 경로 생성 종료
+                    }
+                } else {
+                    stack.pop();
                 }
             }
-
-            if (!neighbors.empty()) {
-                // 랜덤한 이웃 선택
-                std::shuffle(neighbors.begin(), neighbors.end(), rng);
-                Point next = neighbors.front();
-
-                // 현재 위치와 다음 위치 사이의 길 제거
-                remove_obstacle(next);
-                stack.push(next);
-
-                if (next == target) {
-                    break; // 목표에 도달하면 경로 생성 종료
-                }
-            } else {
-                stack.pop();
-            }
         }
 
-        // 목표 지점까지 경로 보장
-        Point current = start_point;
-        while (current != target) {
-            if (current.x < target.x) {
-                current.x++;
-            } else if (current.x > target.x) {
-                current.x--;
-            } else if (current.y < target.y) {
-                current.y++;
-            } else if (current.y > target.y) {
-                current.y--;
+        attempt++; // 재시도 횟수 증가
+
+    } while (!is_paths_connected(start_point, main_target, directions));
+
+    std::cout << "[Map] 맵 생성 완료." << "\n";
+}
+
+// 경로 연결 여부 확인 함수
+bool Map::is_paths_connected(const Point& start, const Point& target, const std::vector<Point>& directions)
+{
+    // BFS를 활용하여 경로 연결 여부 확인
+    std::queue<Point> queue;
+    std::set<Point> visited;
+
+    queue.push(start);
+    visited.insert(start);
+
+    while (!queue.empty()) {
+        Point current = queue.front();
+        queue.pop();
+
+        for (const auto& dir : directions) {
+            Point next = {current.x + dir.x, current.y + dir.y};
+            if (next.x > 0 && next.y > 0 && next.x < max_width && next.y < max_height &&
+                visited.find(next) == visited.end() &&
+                std::find(obstacles_.begin(), obstacles_.end(), next) == obstacles_.end()) {
+                queue.push(next);
+                visited.insert(next);
             }
-            remove_obstacle(current);
         }
     }
+
+    // 도착지에 도달 가능한지 확인
+    if (visited.find(target) == visited.end()) {
+        std::cout << "[Map] 포탈 또는 종료 지점에 도달할 수 없습니다. 재생성합니다." << "\n";
+        return false;
+    }
+
+    return true;
 }
 
 /**
@@ -166,7 +206,7 @@ bool Map::is_obstacle(const Point& pos) const {
  * 2) 장애물이 있는지 확인
  */
 bool Map::is_valid_position(const Point& pos) const {
-    return (pos.x>0 && pos.y>0 && pos.x<=max_width && pos.y<=max_height) && !is_obstacle(pos);
+    return (pos.x>0 && pos.y>0 && pos.x<max_width && pos.y<max_height) && !is_obstacle(pos);
 }
 
 /**

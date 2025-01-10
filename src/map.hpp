@@ -31,8 +31,8 @@ struct Obstacle {
 class Map : public std::enable_shared_from_this<Map> {
 public:
     std::string name;
-    Point start_point;
-    Point end_point;
+    Point start_point = {-1, -1};
+    Point end_point = {-1, -1};
     int max_width;
     int max_height;
 
@@ -49,6 +49,7 @@ public:
 
     // 장애물
     void generate_random_obstacles(bool is_end);
+    bool is_paths_connected(const Point& start, const Point& target, const std::vector<Point>& directions);
     bool is_obstacle(const Point& pos) const;
 
     // 이동 가능 확인
