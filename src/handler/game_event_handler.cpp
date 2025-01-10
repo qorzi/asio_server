@@ -269,7 +269,6 @@ void GameEventHandler::handle_player_moved(const Event& ev)
     {
         // 플레이어가 도착 => 게임 종료(또는 별도 rank)
         // remove from map, broadcast "finished"
-        cur_map->remove_player(player);
         player->is_finished_ = true;
 
         // broadcast
@@ -280,8 +279,11 @@ void GameEventHandler::handle_player_moved(const Event& ev)
             {"total_dist", player->total_distance_}
         };
         std::string body = broadcast_msg.dump();
-                auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_FINISHED, body);
+        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_FINISHED, body);
         room->broadcast_message(resp);
+
+        // 완료한 플레이어 제거
+        cur_map->remove_player(player);
 
         // [TODO] 모든 플레이어 도착 시, 게임 종료 이벤트
         // 예: check if "room->allPlayersFinished()" => enqueue GAME_END, etc.
