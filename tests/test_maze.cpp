@@ -7,15 +7,15 @@
  */
 bool is_path_available(const Map& map, const Point& start, const Point& target) {
     const std::vector<Point> directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
-    std::queue<Point> to_visit;
+    std::queue<Point> queue;
     std::set<Point> visited;
 
-    to_visit.push(start);
+    queue.push(start);
     visited.insert(start);
 
-    while (!to_visit.empty()) {
-        Point current = to_visit.front();
-        to_visit.pop();
+    while (!queue.empty()) {
+        Point current = queue.front();
+        queue.pop();
 
         if (current == target) {
             return true; // 목표 지점에 도달 가능한 경로를 찾음
@@ -25,7 +25,7 @@ bool is_path_available(const Map& map, const Point& start, const Point& target) 
             Point neighbor = {current.x + dir.x, current.y + dir.y};
 
             if (map.is_valid_position(neighbor) && visited.find(neighbor) == visited.end()) {
-                to_visit.push(neighbor);
+                queue.push(neighbor);
                 visited.insert(neighbor);
             }
         }
@@ -51,7 +51,7 @@ TEST(MapTest, GenerateRandomObstacles_PathValidation) {
         bool is_end = (i % 2 == 0);
 
         if (is_end) {
-            map.end_point = {width, height};
+            map.end_point = {width-2, height-2};
         } else {
             // 포탈 생성
             map.portals_.push_back({{width / 2, height / 2}, "Portal-1", "LinkedMap"});

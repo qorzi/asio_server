@@ -18,7 +18,7 @@ void Room::initialize_maps() {
 
     auto mapC = std::make_shared<Map>("C", 15, 15);
     mapC->start_point = {1, 1};
-    mapC->end_point   = {14, 14};
+    mapC->end_point   = {13, 13};
 
     // 포탈 생성
     mapA->generate_random_portal("B");

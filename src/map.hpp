@@ -12,7 +12,8 @@
 /**
  * Map
  *  - 맵 내 플레이어 목록
- *  - 포탈, 벽, start/end 등 지형 정보
+ *  - 포탈, 장애물, start/end 등 지형 정보
+ *  - 맵의 경계는 '벽'으로 사용되지 않음(0, max_width, max_height)
  */
 struct Portal {
     Point position;
@@ -49,7 +50,7 @@ public:
 
     // 장애물
     void generate_random_obstacles(bool is_end);
-    bool is_paths_connected(const Point& start, const Point& target, const std::vector<Point>& directions);
+    bool is_paths_connected(const Point& start, const Point& target);
     bool is_obstacle(const Point& pos) const;
 
     // 이동 가능 확인
