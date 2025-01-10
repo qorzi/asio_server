@@ -91,6 +91,8 @@ bool Map::is_portal(const Point& pos) const {
  */
 void Map::generate_random_obstacles(bool is_end)
 {
+    // 최소 장애물 개수
+    int min_obstacles = ((max_width - 2) + (max_height - 2)) * 2 ;
 
     // 방향 벡터: 상, 하, 좌, 우
     const std::vector<Point> directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
@@ -216,7 +218,7 @@ void Map::generate_random_obstacles(bool is_end)
         attempt++; // 재시도 횟수 증가
         std::cout << "[Map] Attempt " << attempt << ": Obstacles count = " << obstacles_.size() << "\n";
 
-    } while (!is_paths_connected(start_point, main_target));
+    } while (!is_paths_connected(start_point, main_target) || obstacles_.size() < min_obstacles);
 
     std::cout << "[Map] 맵 생성 완료. 장애물 수: " << obstacles_.size() << "\n";
 }
