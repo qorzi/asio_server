@@ -70,8 +70,8 @@ public:
 private:
     std::mutex map_mutex_;
     std::vector<std::shared_ptr<Player>> map_players_;
-    // TODO: 벽(Obstacle) 목록, ex: std::vector<Rect> obstacles_;
-    //       bool is_blocked(Point pos) etc.
+
+    int manhattan_distance(const Point& a, const Point& b) const;
 };
 
 #endif

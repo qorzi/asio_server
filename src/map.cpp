@@ -21,11 +21,13 @@ Map::Map(const std::string& name, int width, int height)
  */
 std::string Map::generate_random_portal(const std::string& linked_map_name)
 {
+    int min_distance = (max_width + max_height) / 2; // 최소 거리
     Portal portal;
     do {
         portal.position = { rand() % (max_width - 2) + 1, rand() % (max_height - 2) + 1 };
     } while (portal.position == start_point 
           || portal.position == end_point 
+          || manhattan_distance(portal.position, start_point) < min_distance
           || std::any_of(portals_.begin(), portals_.end(), [&](const Portal& pp){
                return pp.position == portal.position; 
           }));
@@ -34,6 +36,11 @@ std::string Map::generate_random_portal(const std::string& linked_map_name)
     portal.linked_map_name = linked_map_name;
     portals_.push_back(portal);
     return portal.name;
+}
+
+// 맨해튼 거리 계산 헬퍼 함수
+int Map::manhattan_distance(const Point& a, const Point& b) const {
+    return std::abs(a.x - b.x) + std::abs(a.y - b.y);
 }
 
 /**
