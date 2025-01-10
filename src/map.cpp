@@ -12,6 +12,8 @@ Map::Map(const std::string& name, int width, int height)
     , max_width(width)
     , max_height(height)
 {
+    std::seed_seq seed_seq{std::random_device{}(), static_cast<unsigned int>(std::chrono::steady_clock::now().time_since_epoch().count())};
+    rng_.seed(seed_seq);
 }
 
 /**
@@ -23,18 +25,42 @@ std::string Map::generate_random_portal(const std::string& linked_map_name)
 {
     int min_distance = (max_width + max_height) / 2; // 최소 거리
     Portal portal;
-    do {
-        portal.position = { rand() % (max_width - 2) + 1, rand() % (max_height - 2) + 1 };
-    } while (portal.position == start_point 
-          || portal.position == end_point 
-          || manhattan_distance(portal.position, start_point) < min_distance
-          || std::any_of(portals_.begin(), portals_.end(), [&](const Portal& pp){
-               return pp.position == portal.position; 
-          }));
 
-    portal.name = name + "-" + std::to_string(portals_.size()+1);
+    // 최대 시도 횟수 설정
+    const int MAX_ATTEMPTS = 100;
+    int attempt = 0;
+    bool valid = false;
+
+    while (attempt < MAX_ATTEMPTS && !valid) {
+        portal.position = get_random_position();
+
+        // 유일성 검사
+        if (portal.position == start_point ||
+            portal.position == end_point ||
+            manhattan_distance(portal.position, start_point) < min_distance ||
+            std::any_of(portals_.begin(), portals_.end(),
+                        [&](const Portal& pp) { return pp.position == portal.position; })) {
+            // 조건에 맞지 않으면 계속 시도
+            attempt++;
+            continue;
+        }
+
+        // 유효한 위치 찾음
+        valid = true;
+    }
+
+    if (!valid) {
+        throw std::runtime_error("유효한 포탈 위치를 찾을 수 없습니다.");
+    }
+
+    // 포탈 이름 생성 및 추가
+    portal.name = name + "-" + std::to_string(portals_.size() + 1);
     portal.linked_map_name = linked_map_name;
     portals_.push_back(portal);
+
+    std::cout << "[Map] 포탈 생성 완료: " << portal.name
+              << " at (" << portal.position.x << ", " << portal.position.y << ")\n";
+
     return portal.name;
 }
 
@@ -55,16 +81,17 @@ bool Map::is_portal(const Point& pos) const {
 }
 
 /**
- * 맵에 랜덤 위치릐 장애물 생성하기
+ * 맵에 랜덤 위치의 장애물 생성하기
  * 1) 마지막 맵인지 아닌지를 요소로 가져옴
  * 2) 마지막 맵은 end_point로 가는 길을 만들고,
  * 3) 아닌 경우, 포탈로 가는 길을 생성함
- * 4) 미로 생성을 위한 더미 도착지 추가가
- * 5) 길찾기 로직으로 미로 생성성
+ * 4) 미로 생성을 위한 더미 도착지 추가
+ * 5) 길찾기 로직으로 미로 생성
  * 6) 생성 된 길 외에는 전부 장애물로 설정
  */
 void Map::generate_random_obstacles(bool is_end)
 {
+
     // 방향 벡터: 상, 하, 좌, 우
     const std::vector<Point> directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
 
@@ -95,9 +122,6 @@ void Map::generate_random_obstacles(bool is_end)
             }
         };
 
-        std::random_device rd;
-        std::mt19937 rng(rd());
-
         // 1. 더미 도착지점 생성
         std::vector<Point> targets;
         if (is_end) {
@@ -109,14 +133,47 @@ void Map::generate_random_obstacles(bool is_end)
         }
 
         int additional_targets = std::max(1, (max_width * max_height) / 70); // 맵 크기에 따라 더미 지점 생성
-        while (targets.size() < additional_targets + 1) {
-            Point dummy_target = {rand() % (max_width - 2) + 1, rand() % (max_height - 2) + 1};
-            if (dummy_target != start_point && 
-                dummy_target != end_point && 
-                !is_portal(dummy_target) && 
+        int min_distance = (max_width + max_height) / 2; // 최소 거리
+
+        // 1.1 최소 하나의 더미 타겟을 min_distance 이상 떨어진 위치에 생성
+        bool far_target_added = false;
+        const int MAX_DUMMY_ATTEMPTS = 100;
+        int dummy_attempt = 0;
+
+        while (!far_target_added && dummy_attempt < MAX_DUMMY_ATTEMPTS) {
+            Point dummy_target = get_random_position();
+            if (dummy_target != start_point &&
+                dummy_target != end_point &&
+                !is_portal(dummy_target) &&
+                manhattan_distance(dummy_target, start_point) > min_distance &&
                 std::find(targets.begin(), targets.end(), dummy_target) == targets.end()) {
                 targets.push_back(dummy_target);
+                far_target_added = true;
+                std::cout << "[Map] 최소 거리 만족 더미 지점 추가: (" << dummy_target.x << ", " << dummy_target.y << ")\n";
             }
+            dummy_attempt++;
+        }
+
+        if (!far_target_added) {
+            std::cerr << "[Map] 최소 거리 만족하는 더미 지점 생성 실패. 추가 시도합니다.\n";
+            attempt++;
+            continue;
+        }
+
+        // 1.2. 나머지 더미 타겟 생성 (min_distance 조건 없음)
+        int remaining_targets = additional_targets;
+        dummy_attempt = 0;
+        while (targets.size() < additional_targets + 1 && dummy_attempt < MAX_DUMMY_ATTEMPTS) {
+            Point dummy_target = get_random_position();
+            if (dummy_target != start_point &&
+                dummy_target != end_point &&
+                !is_portal(dummy_target) &&
+                std::find(targets.begin(), targets.end(), dummy_target) == targets.end()) {
+                targets.push_back(dummy_target);
+                remaining_targets--;
+                std::cout << "[Map] 추가 더미 지점 추가: (" << dummy_target.x << ", " << dummy_target.y << ")\n";
+            }
+            dummy_attempt++;
         }
 
         // 2. 각 도착지점으로 경로 생성
@@ -140,7 +197,7 @@ void Map::generate_random_obstacles(bool is_end)
 
                 if (!neighbors.empty()) {
                     // 랜덤한 이웃 선택
-                    std::shuffle(neighbors.begin(), neighbors.end(), rng);
+                    std::shuffle(neighbors.begin(), neighbors.end(), rng_);
                     Point next = neighbors.front();
 
                     // 현재 위치와 다음 위치 사이의 길 제거
@@ -157,10 +214,11 @@ void Map::generate_random_obstacles(bool is_end)
         }
 
         attempt++; // 재시도 횟수 증가
+        std::cout << "[Map] Attempt " << attempt << ": Obstacles count = " << obstacles_.size() << "\n";
 
     } while (!is_paths_connected(start_point, main_target));
 
-    std::cout << "[Map] 맵 생성 완료." << "\n";
+    std::cout << "[Map] 맵 생성 완료. 장애물 수: " << obstacles_.size() << "\n";
 }
 
 // 경로 연결 여부 확인 함수
@@ -340,4 +398,14 @@ void Map::broadcast_in_map(const std::string& msg)
     for(auto& p : map_players_) {
         p->send_message(msg);
     }
+}
+
+/**
+ * 랜덤 포지션 생성 함수
+ */
+Point Map::get_random_position()
+{
+    std::uniform_int_distribution<int> dist_x(1, max_width - 2);
+    std::uniform_int_distribution<int> dist_y(1, max_height - 2);
+    return { dist_x(rng_), dist_y(rng_) };
 }

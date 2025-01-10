@@ -8,6 +8,7 @@
 #include <mutex>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <random>
 
 /**
  * Map
@@ -72,6 +73,11 @@ private:
     std::vector<std::shared_ptr<Player>> map_players_;
 
     int manhattan_distance(const Point& a, const Point& b) const;
+
+    std::mt19937 rng_; // 난수 생성기 변수
+
+    // 랜덤 포지션 생성 함수
+    Point get_random_position();
 };
 
 #endif
