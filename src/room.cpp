@@ -20,11 +20,14 @@ void Room::initialize_maps() {
     mapC->start_point = {1, 1};
     mapC->end_point   = {14, 14};
 
-    // 포탈(예시)
+    // 포탈 생성
     mapA->generate_random_portal("B");
     mapB->generate_random_portal("C");
-
-    // (원하면 여기서 mapA->initialize_obstacles() 등 벽 생성)
+    
+    // 장애물 생성
+    mapA->generate_random_obstacles(false);
+    mapB->generate_random_obstacles(false);
+    mapC->generate_random_obstacles(true);
 
     {
         std::lock_guard<std::mutex> lock(room_mutex_);

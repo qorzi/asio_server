@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <iostream>
 #include <cstdlib> // rand
+#include <stack>
+#include <random>
 
 Map::Map(const std::string& name, int width, int height)
     : name(name)
@@ -21,13 +23,13 @@ std::string Map::generate_random_portal(const std::string& linked_map_name)
         portal.position = { rand()%max_width+1, rand()%max_height+1 };
     } while (portal.position == start_point 
           || portal.position == end_point 
-          || std::any_of(portals.begin(), portals.end(), [&](const Portal& pp){
+          || std::any_of(portals_.begin(), portals_.end(), [&](const Portal& pp){
                return pp.position == portal.position; 
           }));
 
-    portal.name = name + "-" + std::to_string(portals.size()+1);
+    portal.name = name + "-" + std::to_string(portals_.size()+1);
     portal.linked_map_name = linked_map_name;
-    portals.push_back(portal);
+    portals_.push_back(portal);
     return portal.name;
 }
 
@@ -36,8 +38,124 @@ std::string Map::generate_random_portal(const std::string& linked_map_name)
  * (플레이어 이동 시, 포탈인지 확인용)
  */
 bool Map::is_portal(const Point& pos) const {
-    for(auto& pt: portals){
+    for(auto& pt: portals_){
         if(pt.position == pos) return true;
+    }
+    return false;
+}
+
+/**
+ * 맵에 랜덤 위치릐 장애물 생성하기
+ * 1) 마지막 맵인지 아닌지를 요소로 가져옴
+ * 2) 마지막 맵은 end_point로 가는 길을 만들고,
+ * 3) 아닌 경우, 포탈로 가는 길을 생성함
+ * 4) 미로 생성을 위한 더미 도착지 추가가
+ * 5) 길찾기 로직으로 미로 생성성
+ * 6) 생성 된 길 외에는 전부 장애물로 설정
+ */
+void Map::generate_random_obstacles(bool is_end)
+{
+    // 방향 벡터: 상, 하, 좌, 우
+    const std::vector<Point> directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+
+    // 미로 초기화: 모든 위치를 장애물로 설정
+    obstacles_.clear();
+    for (int x = 1; x <= max_width; ++x) {
+        for (int y = 1; y <= max_height; ++y) {
+            obstacles_.push_back({x, y});
+        }
+    }
+
+    // 방문 처리 유틸리티
+    auto remove_obstacle = [&](const Point& pos) {
+        auto it = std::find(obstacles_.begin(), obstacles_.end(), pos);
+        if (it != obstacles_.end()) {
+            obstacles_.erase(it);
+        }
+    };
+
+    std::random_device rd;
+    std::mt19937 rng(rd());
+
+    // 1. 더미 도착지점 생성
+    std::vector<Point> targets;
+    if (is_end) {
+        targets.push_back(end_point); // 종료 지점 포함
+    } else {
+        targets.push_back(portals_.front().position); // 포탈 포함 (첫번째 포탈만 포함)
+    }
+
+    int additional_targets = std::max(1, (max_width * max_height) / 50); // 맵 크기에 따라 더미 지점 생성
+    while (targets.size() < additional_targets + 1) {
+        Point dummy_target = {rand() % max_width + 1, rand() % max_height + 1};
+        if (dummy_target != start_point && 
+            dummy_target != end_point && 
+            !is_portal(dummy_target) && 
+            std::find(targets.begin(), targets.end(), dummy_target) == targets.end()) {
+            targets.push_back(dummy_target);
+        }
+    }
+
+    // 2. 각 도착지점으로 경로 생성
+    for (const auto& target : targets) {
+        std::stack<Point> stack;
+        stack.push(start_point);
+        remove_obstacle(start_point);
+
+        while (!stack.empty()) {
+            Point current = stack.top();
+
+            // 현재 위치에서 이동 가능한 랜덤한 방향 선택
+            std::vector<Point> neighbors;
+            for (const auto& dir : directions) {
+                Point next = {current.x + dir.x, current.y + dir.y};
+                if (next.x > 0 && next.y > 0 && next.x <= max_width && next.y <= max_height &&
+                    std::find(obstacles_.begin(), obstacles_.end(), next) != obstacles_.end()) {
+                    neighbors.push_back(next);
+                }
+            }
+
+            if (!neighbors.empty()) {
+                // 랜덤한 이웃 선택
+                std::shuffle(neighbors.begin(), neighbors.end(), rng);
+                Point next = neighbors.front();
+
+                // 현재 위치와 다음 위치 사이의 길 제거
+                remove_obstacle(next);
+                stack.push(next);
+
+                if (next == target) {
+                    break; // 목표에 도달하면 경로 생성 종료
+                }
+            } else {
+                stack.pop();
+            }
+        }
+
+        // 목표 지점까지 경로 보장
+        Point current = start_point;
+        while (current != target) {
+            if (current.x < target.x) {
+                current.x++;
+            } else if (current.x > target.x) {
+                current.x--;
+            } else if (current.y < target.y) {
+                current.y++;
+            } else if (current.y > target.y) {
+                current.y--;
+            }
+            remove_obstacle(current);
+        }
+    }
+}
+
+/**
+ * 해당 포지션이 장애물 위치인지 확인
+ * (플레이어 이동 시, 장애물인지 확인용)
+ */
+bool Map::is_obstacle(const Point& pos) const {
+    for(auto& obs: obstacles_){
+        if(obs.position == pos) return true;
     }
     return false;
 }
@@ -45,11 +163,10 @@ bool Map::is_portal(const Point& pos) const {
 /**
  * 이동할 수 있는 위치인지 확인
  * 1) 도달할 수 있는 범위 인지 확인
- * 2) 이동 범위가 1인지 확인
- * TODO: 장애물이 있는지 확인하는 로직 추가
+ * 2) 장애물이 있는지 확인
  */
 bool Map::is_valid_position(const Point& pos) const {
-    return (pos.x>0 && pos.y>0 && pos.x<=max_width && pos.y<=max_height);
+    return (pos.x>0 && pos.y>0 && pos.x<=max_width && pos.y<=max_height) && !is_obstacle(pos);
 }
 
 /**
@@ -108,8 +225,12 @@ std::shared_ptr<Player> Map::find_player(const std::string& player_id)
  *   "start": {"x":1,"y":1},
  *   "end":   {"x":299,"y":299}, 
  *   "portals": [
- *       {"x":..., "y":..., "name":"A-1", "linked_map":"B"},
- *       ...
+ *      {"x":..., "y":..., "name":"A-1", "linked_map":"B"},
+ *      ...
+ *   ]
+ *   "obstacles": [
+ *      {"x":..., "y":...},
+ *      ...
  *   ]
  * }
  */
@@ -137,7 +258,7 @@ nlohmann::json Map::extracte_map_info() const
 
     // portals
     nlohmann::json portal_array = nlohmann::json::array();
-    for (auto& pt : portals) {
+    for (auto& pt : portals_) {
         nlohmann::json pjson;
         pjson["x"] = pt.position.x;
         pjson["y"] = pt.position.y;
@@ -147,8 +268,15 @@ nlohmann::json Map::extracte_map_info() const
     }
     map_info["portals"] = portal_array;
 
-    // TODO: obstacles if any
-    // map_info["obstacles"] = ...
+    // obstacles
+    nlohmann::json obstacle_array = nlohmann::json::array();
+    for (auto& obs : obstacles_) {
+        nlohmann::json ojson;
+        ojson["x"] = obs.position.x;
+        ojson["y"] = obs.position.y;
+        obstacle_array.push_back(ojson);
+    }
+    map_info["obstacles"] = obstacle_array;
 
     return map_info;
 }

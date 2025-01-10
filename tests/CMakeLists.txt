@@ -5,6 +5,7 @@ include_directories(${GTEST_INCLUDE_DIRS} ${SRC_DIR} ${HANDLER_DIR})
 # 테스트 소스 파일
 set(TEST_SOURCES
     test_packet.cpp
+    test_maze.cpp
 )
 
 # 필요한 소스 파일 추가

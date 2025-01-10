@@ -20,6 +20,14 @@ struct Portal {
     std::string linked_map_name;
 };
 
+struct Obstacle {
+    Point position;
+
+    bool operator==(const Point& other) const {
+        return position == other;
+    }
+};
+
 class Map : public std::enable_shared_from_this<Map> {
 public:
     std::string name;
@@ -29,7 +37,8 @@ public:
     int max_height;
 
     // 포탈/장애물 등
-    std::vector<Portal> portals;
+    std::vector<Portal> portals_;
+    std::vector<Obstacle> obstacles_;
 
     // 생성자
     Map(const std::string& name, int width, int height);
@@ -37,6 +46,10 @@ public:
     // 포탈
     std::string generate_random_portal(const std::string& linked_map_name);
     bool is_portal(const Point& pos) const;
+
+    // 장애물
+    void generate_random_obstacles(bool is_end);
+    bool is_obstacle(const Point& pos) const;
 
     // 이동 가능 확인
     bool is_valid_position(const Point& pos) const;

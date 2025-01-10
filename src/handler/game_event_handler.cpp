@@ -308,7 +308,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
 
         // 포탈의 linked_map_name 찾기
         std::string linked_map="";
-        for(auto& pt : cur_map->portals) {
+        for(auto& pt : cur_map->portals_) {
             if(pt.position == player->position_) {
                 linked_map = pt.linked_map_name;
                 break;
