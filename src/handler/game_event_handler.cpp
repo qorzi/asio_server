@@ -2,6 +2,7 @@
 #include "room.hpp"
 #include "reactor.hpp"
 #include "utils.hpp"
+#include "game_result.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
 
@@ -74,7 +75,7 @@ void GameEventHandler::handle_room_create(const Event& ev)
 
     // 5) Room 전체 정보 브로드캐스팅팅 (대기화면 이동 명령)
     {
-        nlohmann::json broadcast_msg = room->extracte_all_map_info();
+        nlohmann::json broadcast_msg = room->extract_all_map_info();
         broadcast_msg["action"] = "room_create";
         broadcast_msg["result"] = true;
         std::string body = broadcast_msg.dump();
@@ -223,7 +224,6 @@ void GameEventHandler::handle_player_moved(const Event& ev)
 
     // 1) 위치 검증: 범위 / 벽(추후) 
     Point newPos{nx, ny};
-    std::cout << nx << " " << ny << '\n';
     if(!cur_map->is_valid_position(newPos) || !player->is_valid_position(newPos)) {
         // 응답: invalid pos
         nlohmann::json broadcast_msg {
@@ -239,9 +239,6 @@ void GameEventHandler::handle_player_moved(const Event& ev)
         player->send_message(resp);
         return;
     }
-
-    // (벽 체크) => if(cur_map->is_blocked({nx,ny})) ...
-    // ...
 
     // 2) 이동
     player->update_position(newPos);
@@ -264,26 +261,39 @@ void GameEventHandler::handle_player_moved(const Event& ev)
     // 4) 도착인지 체크 (end_point)
     //    - 마지막 맵인 경우, end_point={299,299} etc.
     //    TODO: 모든 플레이어 도착 시, 게임 종료.
-    if(cur_map->name == "C" // 마지막 맵
-       && newPos == cur_map->end_point)
+    if(cur_map->is_end_map() // 마지막 맵
+       && cur_map->is_end_position(newPos))
     {
         // 플레이어가 도착 => 게임 종료(또는 별도 rank)
         // remove from map, broadcast "finished"
         player->is_finished_ = true;
 
-        // broadcast
-        nlohmann::json broadcast_msg {
-            {"action", "player_finished"},
-            {"result", true},
-            {"player_id", player->id_},
-            {"total_dist", player->total_distance_}
-        };
+        // 플레이어 기록 등록
+        room->gr_.add_player_result(player);
+
+        // 현재까지의 게임 결과 가져오기
+        nlohmann::json broadcast_msg = room->gr_.to_json();
+        broadcast_msg["action"] = "player_finished";
+        broadcast_msg["result"] = true;
+        broadcast_msg["player_id"] = player->id_;
+        broadcast_msg["player_name"] = player->name_;
         std::string body = broadcast_msg.dump();
         auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_FINISHED, body);
         room->broadcast_message(resp);
 
-        // 완료한 플레이어 제거
-        cur_map->remove_player(player);
+        // old map remove
+        bool removed = cur_map->remove_player(player);
+        if(removed) {
+            nlohmann::json broadcast_msg {
+                {"action", "player_come_out_map"},
+                {"result", true},
+                {"player_id", player->id_},
+                {"map", cur_map->name}
+            };
+            std::string body = broadcast_msg.dump();
+            auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_COME_OUT_MAP, body);
+            cur_map->broadcast_in_map(resp);
+        }
 
         // [TODO] 모든 플레이어 도착 시, 게임 종료 이벤트
         // 예: check if "room->allPlayersFinished()" => enqueue GAME_END, etc.
@@ -333,6 +343,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
                     {"x", player->position_.x},
                     {"y", player->position_.y}
                 };
+                broadcast_msg["players"] = new_map->extract_players_position_info();
                 auto body = broadcast_msg.dump();
                 auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::PLAYER_COME_IN_MAP, body);
                 new_map->broadcast_in_map(resp);

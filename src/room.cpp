@@ -4,21 +4,22 @@
 
 Room::Room(int id)
     : id_(id)
+    , gr_(id)
 {
     std::cout << "[DEBUG][Room:" << id_ << "] Room constructor called.\n";
 }
 
 void Room::initialize_maps() {
     // 맵 생성
-    auto mapA = std::make_shared<Map>("A", 15, 15);
+    auto mapA = std::make_shared<Map>("A", 10, 10);
     mapA->start_point = {1, 1};
 
-    auto mapB = std::make_shared<Map>("B", 15, 15);
+    auto mapB = std::make_shared<Map>("B", 10, 10);
     mapB->start_point = {1, 1};
 
-    auto mapC = std::make_shared<Map>("C", 15, 15);
+    auto mapC = std::make_shared<Map>("C", 10, 10);
     mapC->start_point = {1, 1};
-    mapC->end_point   = {13, 13};
+    mapC->end_point   = {8, 8};
 
     // 포탈 생성
     mapA->generate_random_portal("B");
@@ -132,7 +133,7 @@ std::shared_ptr<Map> Room::get_map_by_name(const std::string& name)
  *   ]
  * }
  */
-nlohmann::json Room::extracte_all_map_info() const
+nlohmann::json Room::extract_all_map_info() const
 {
     nlohmann::json j;
     j["room_id"] = id_;
@@ -141,7 +142,7 @@ nlohmann::json Room::extracte_all_map_info() const
     {
         std::lock_guard<std::mutex> lock(room_mutex_);
         for(auto& m : maps_) {
-            maps_array.push_back(m->extracte_map_info());
+            maps_array.push_back(m->extract_map_info());
         }
     }
     j["maps"] = maps_array;

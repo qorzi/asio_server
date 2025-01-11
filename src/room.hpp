@@ -3,6 +3,7 @@
 
 #include "map.hpp"
 #include "player.hpp"
+#include "game_result.hpp"
 #include <memory>
 #include <vector>
 #include <mutex>
@@ -17,6 +18,7 @@
 class Room : public std::enable_shared_from_this<Room> {
 public:
     const int id_;
+    GameResult gr_;
 
     explicit Room(int id);
 
@@ -41,7 +43,7 @@ public:
     std::shared_ptr<Map> get_map_by_name(const std::string& name);
 
     // 맵 전체 정보 추출
-    nlohmann::json extracte_all_map_info() const;
+    nlohmann::json extract_all_map_info() const;
 
 private:
     std::vector<std::shared_ptr<Map>> maps_;

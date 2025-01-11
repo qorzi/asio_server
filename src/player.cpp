@@ -2,9 +2,17 @@
 #include "connection_manager.hpp"
 #include <cmath>
 
-Player::Player(const std::string& id, const std::string& name)
-    : id_(id), name_(name)
+std::atomic<uint64_t> Player::id_counter_{0};
+
+Player::Player(const std::string& name)
+    : name_(name)
+    , total_distance_(0)
 {
+    uint64_t new_id = id_counter_.fetch_add(1, std::memory_order_relaxed) + 1;
+
+    std::ostringstream oss;
+    oss << std::setw(12) << std::setfill('0') << new_id; // 12자리, 앞에 0 채우기
+    id_ = oss.str();
 }
 
 /**

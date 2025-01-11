@@ -45,6 +45,9 @@ public:
     // 생성자
     Map(const std::string& name, int width, int height);
 
+    bool is_end_position(const Point& pos) const;
+    bool is_end_map() const;
+
     // 포탈
     std::string generate_random_portal(const std::string& linked_map_name);
     bool is_portal(const Point& pos) const;
@@ -63,13 +66,16 @@ public:
     std::shared_ptr<Player> find_player(const std::string& player_id);
 
     // 맵 정보 추출 함수 (to json)
-    nlohmann::json extracte_map_info() const;
+    nlohmann::json extract_map_info() const;
+
+    // 맵 내 모든 플레이어의 위치 정보 가져오는 함수
+    nlohmann::json extract_players_position_info() const;
 
     // 맵 내부 브로드캐스트
     void broadcast_in_map(const std::string& msg);
 
 private:
-    std::mutex map_mutex_;
+    mutable std::mutex map_mutex_;
     std::vector<std::shared_ptr<Player>> map_players_;
 
     int manhattan_distance(const Point& a, const Point& b) const;

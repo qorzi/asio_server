@@ -17,6 +17,23 @@ Map::Map(const std::string& name, int width, int height)
 }
 
 /**
+ * 해당 포지션이 도착 위치인지 확인
+ * (플레이어 이동 시, 도착지인지 확인용)
+ */
+bool Map::is_end_position(const Point& pos) const {
+    return end_point == pos ? true : false;
+}
+
+/**
+ * 해당 맵이 마지막 맵인지 확인
+ * (엔드 포인트 범위를 통해 검증)
+ */
+bool Map::is_end_map() const {
+    return (end_point.x > 0 && end_point.y > 0 && end_point.x < max_width - 1 && end_point.y < max_height - 1) 
+           && !is_obstacle(end_point);
+}
+
+/**
  * 맵에 랜덤 위치의 포탈 생성하기
  * 시작과 종료 위치를 제외한 위치에 생성
  * 포탈이 맵의 경계(0 or Max)에 생성 되지 않도록 함
@@ -348,8 +365,10 @@ std::shared_ptr<Player> Map::find_player(const std::string& player_id)
  *   ]
  * }
  */
-nlohmann::json Map::extracte_map_info() const
+nlohmann::json Map::extract_map_info() const
 {
+    std::lock_guard<std::mutex> lock(map_mutex_);
+
     nlohmann::json map_info;
     map_info["name"]   = name;
     map_info["width"]  = max_width;
@@ -409,6 +428,38 @@ nlohmann::json Map::extracte_map_info() const
     map_info["players"] = players_array;
 
     return map_info;
+}
+
+/**
+ * 맵 내 플레이어 위치 정보를 json 배열로 반환
+ * [
+ *   {
+ *      "player_id": "000000000001",
+ *      "x": 120,
+ *      "y": 45
+ *   },
+ *   ...
+ * ]
+ */
+
+nlohmann::json Map::extract_players_position_info() const {
+    nlohmann::json players_json = nlohmann::json::array();
+    
+    // map_players_ 접근 시 mutex 사용 (스레드 안전하게)
+    std::lock_guard<std::mutex> lock(map_mutex_);
+    
+    for (const auto& player_ptr : map_players_) {
+        if (player_ptr) {
+            nlohmann::json player_info;
+            player_info["player_id"] = player_ptr->id_; // 플레이어 고유 id
+            player_info["x"] = player_ptr->position_.x;  // Point 구조체의 x 값
+            player_info["y"] = player_ptr->position_.y;  // Point 구조체의 y 값
+            
+            players_json.push_back(player_info);
+        }
+    }
+    
+    return players_json;
 }
 
 /**

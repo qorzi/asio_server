@@ -56,11 +56,10 @@ void NetworkEventHandler::handle_join(const Event& event)
 
         // 1) JSON 파싱
         json parsed = json::parse(event.data);
-        std::string player_id   = parsed["player_id"].get<std::string>();
         std::string player_name = parsed["player_name"].get<std::string>();
 
         // 2) Player 생성
-        auto player = std::make_shared<Player>(player_id, player_name);
+        auto player = std::make_shared<Player>(player_name);
 
         // 3) ConnectionManager에 연결 등록
         ConnectionManager::get_instance().register_connection(player, conn);
@@ -72,6 +71,7 @@ void NetworkEventHandler::handle_join(const Event& event)
         {
             nlohmann::json ack_msg {
                 {"action", "join"},
+                {"player_id", player->id_},
                 {"result", true}
             };
             std::string body = ack_msg.dump();
@@ -81,7 +81,7 @@ void NetworkEventHandler::handle_join(const Event& event)
 
         // 6) 인원 수 확인 -> 5명 이상이면 ROOM_CREATE 이벤트
         size_t waiting_count = game_manager_.waiting_count();
-        if (waiting_count >= 1) {
+        if (waiting_count >= 2) {
             // 이벤트 enqueue: ROOM_CREATE
             Event ev;
             ev.main_type = MainEventType::GAME;

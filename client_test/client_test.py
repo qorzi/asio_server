@@ -44,13 +44,18 @@ def clear_screen():
 
 class ClientState:
     def __init__(self):
+        self.self_id = None  # 자신의 플레이어 ID
+        self.player_name = None  # 자신의 플레이어 이름
         self.maps = {}
         self.current_map = None
         self.position = (0, 0)
         self.room_id = None
         self.message = ""
         self.game_started = False
+        self.show_leaderboard = False
         self.seen_maps = {}  # 각 맵별로 본 영역을 추적
+        self.players = {}
+        self.leaderboard_results = None  # 리더보드 데이터를 저장
 
     def process_packet(self, packet):
         main_type, sub_type, data = packet
@@ -59,7 +64,9 @@ class ClientState:
         elif main_type == MainEventType.GAME:
             self.process_game(sub_type, data)
             if sub_type == GameSubType.GAME_START or sub_type == GameSubType.PLAYER_MOVED:
-                self.display_view()
+                # 게임 중에는 display_view() 호출 (단, finish 시에는 호출하지 않음)
+                if self.game_started:
+                    self.display_view()
         elif main_type == MainEventType.ERROR:
             error = data.get('error', 'Unknown error')
             self.message = f"에러 발생: {error}"
@@ -73,9 +80,27 @@ class ClientState:
     def process_network(self, data):
         action = data.get('action', '')
         if action == 'join':
-            self.message = "JOIN 성공!"
-            self.refresh_screen()
-            print("JOIN 성공!")
+            result = data.get('result', False)
+            if result:
+                self_id = data.get('player_id', None)
+                if self_id:
+                    self.self_id = self_id
+                    self.player_name = data.get('player_name', 'Unknown')
+                    self.players[self.self_id] = {
+                        'name': self.player_name,
+                        'position': self.position  # 초기 위치 설정
+                    }
+                    self.message = f"JOIN 성공! 플레이어 ID: {self.self_id}"
+                    self.refresh_screen()
+                    print(f"JOIN 성공! 플레이어 ID: {self.self_id}")
+                else:
+                    self.message = "JOIN 응답에 player_id가 없습니다."
+                    self.refresh_screen()
+                    print("JOIN 응답에 player_id가 없습니다.")
+            else:
+                self.message = "JOIN 실패!"
+                self.refresh_screen()
+                print("JOIN 실패!")
         elif action == 'left':
             self.message = "대기열에서 떠났습니다."
             self.refresh_screen()
@@ -103,14 +128,12 @@ class ClientState:
         elif sub_type == GameSubType.PLAYER_COME_OUT_MAP:
             player_id = data.get('player_id', 'Unknown')
             self.message = f"플레이어가 맵에서 나갔습니다: {player_id}"
+            if player_id in self.players:
+                del self.players[player_id]
             self.refresh_screen()
             print(f"플레이어가 맵에서 나갔습니다: {player_id}")
         elif sub_type == GameSubType.PLAYER_FINISHED:
-            player_id = data.get('player_id', 'Unknown')
-            total_dist = data.get('total_dist', 'N/A')
-            self.message = f"플레이어가 도착했습니다: {player_id}, 총 거리: {total_dist}"
-            self.refresh_screen()
-            print(f"플레이어가 도착했습니다: {player_id}, 총 거리: {total_dist}")
+            self.update_player_finished(data)
         elif sub_type == GameSubType.GAME_END:
             self.message = "게임이 종료되었습니다."
             self.refresh_screen()
@@ -132,18 +155,58 @@ class ClientState:
             self.seen_maps[self.current_map] = set()
             self.update_seen_area(self.current_map, self.position)
             self.add_corners_to_seen(self.current_map)
+            # 플레이어 정보 초기화
+            players = data.get('players', [])
+            self.players = {}
+            for p in players:
+                pid = p.get('id')
+                pname = p.get('name')
+                pos = p.get('position', {})
+                self.players[pid] = {
+                    'name': pname,
+                    'position': (pos.get('x', 0), pos.get('y', 0))
+                }
         self.message = "방이 생성되었습니다."
         self.refresh_screen()
         print("방이 생성되었습니다.")
 
     def update_player_moved(self, data):
-        self.position = (data.get('x', self.position[0]), data.get('y', self.position[1]))
-        self.current_map = data.get('map', self.current_map)
-        self.message = "플레이어가 이동했습니다."
+        player_id = data.get('player_id', 'Unknown')
+        new_x = data.get('x', self.position[0])
+        new_y = data.get('y', self.position[1])
+        new_map = data.get('map', self.current_map)
+
+        # 맵이 현재 맵과 동일한지 확인
+        if new_map != self.current_map:
+            # 같은 맵에 대한 이벤트만 처리
+            return
+
+        if player_id == self.self_id:
+            self.position = (new_x, new_y)
+            self.message = "플레이어가 이동했습니다."
+            print("플레이어가 이동했습니다.")
+        else:
+            # 다른 플레이어의 이동 처리
+            if player_id in self.players:
+                self.players[player_id]['position'] = (new_x, new_y)
+                self.message = f"{self.players[player_id]['name']}가 이동했습니다."
+                print(f"{self.players[player_id]['name']}가 이동했습니다.")
+            else:
+                # 새로운 플레이어의 이동 이벤트를 받은 경우 players에 추가
+                pname = data.get('name', 'Unknown')
+                self.players[player_id] = {
+                    'name': pname,
+                    'position': (new_x, new_y)
+                }
+                self.message = f"새 플레이어가 이동했습니다: {player_id}"
+                print(f"새 플레이어가 이동했습니다: {player_id}")
+
         self.refresh_screen()
-        print("플레이어가 이동했습니다.")
-        # 시야 업데이트
+        # 시야 업데이트는 자신 위치 기준으로만 수행
         self.update_seen_area(self.current_map, self.position)
+        # 이동 이벤트 후 display_view() 호출 (game_started가 True일 때만)
+        if self.game_started:
+            self.display_view()
 
     def update_game_start(self, data):
         self.game_started = True
@@ -159,7 +222,7 @@ class ClientState:
 
     def update_player_come_in_map(self, data):
         player_id = data.get('player_id', 'Unknown')
-        if player_id == "player1":  # 클라이언트 자신을 식별하는 조건
+        if player_id == self.self_id:
             new_map = data.get('map', self.current_map)
             new_x = data.get('x', self.position[0])
             new_y = data.get('y', self.position[1])
@@ -179,13 +242,47 @@ class ClientState:
                 self.update_seen_area(self.current_map, self.position)
                 self.add_corners_to_seen(self.current_map)
                 self.display_view()
+
+                # 플레이어 정보 업데이트
+                players = data.get('players', [])
+                self.players = {}
+                for p in players:
+                    pid = p.get('id')
+                    if pid == self.self_id: continue
+                    pname = p.get('name')
+                    pos = p.get('position', {})
+                    self.players[pid] = {
+                        'name': pname,
+                        'position': (pos.get('x', 0), pos.get('y', 0))
+                    }
             else:
                 print("새로운 맵 정보가 클라이언트에 없습니다.")
+
+            # 다른 플레이어 위치 정보 업데이트
+            players = data.get('players', [])
+            for p in players:
+                pid = p.get('player_id')
+                pname = p.get('name', 'Unknown')
+                new_x = p.get('x', 0)
+                new_y = p.get('y', 0)
+                # 해당 플레이어가 이미 존재하면 위치 정보를 업데이트하고, 없으면 새로 추가합니다.
+                self.players[pid] = {
+                    'name': pname,
+                    'position': (new_x, new_y)
+                }
+
         else:
             # 다른 플레이어가 맵에 입장한 경우 처리 (필요 시 확장 가능)
             self.message = f"플레이어가 맵에 입장했습니다: {player_id}"
             self.refresh_screen()
             print(f"플레이어가 맵에 입장했습니다: {player_id}")
+
+            name = data.get('name', 'Unknown')
+            pos = data.get('position', {})
+            self.players[player_id] = {
+                'name': name,
+                'position': (pos.get('x', 0), pos.get('y', 0))
+            }
 
     def update_seen_area(self, map_name, position):
         """플레이어의 현재 위치를 기준으로 시야 내 영역을 seen_maps에 추가"""
@@ -224,9 +321,46 @@ class ClientState:
             if 0 <= width - 1 < width and 0 <= j < height:
                 self.seen_maps[map_name].add((width - 1, j))
 
+    def update_player_finished(self, data):
+        player_id = data.get("player_id", "Unknown")
+        results = data.get("results", [])
+
+        if player_id == self.self_id:
+            # 내가 finish 한 경우
+            self.message = "게임을 완료하셨습니다! 순위표를 확인하세요."
+            self.game_started = False  # 이후 이동 입력은 받지 않음.
+            self.show_leaderboard = True  # 리더보드 모드로 전환
+            self.leaderboard_results = results  # 리더보드 데이터를 저장
+            self.display_leaderboard(results)
+        else:
+            # 다른 플레이어 완료 케이스 처리
+            if self.game_started:
+                finished_player = next((p for p in results if p["player_id"] == player_id), {})
+                player_name = finished_player.get("player_name", "Unknown")
+                self.message = f"{player_name} 님이 게임을 완료했습니다!"
+                self.refresh_screen()
+                print(self.message)
+            else:
+                self.leaderboard_results = results
+                self.display_leaderboard(results)
+
+    def display_leaderboard(self, results):
+        """순위표를 출력"""
+        clear_screen()
+        print("🏆 순위표 🏆")
+        print("-" * 30)
+        for result in results:
+            rank = result.get("rank", "N/A")
+            player_id = result.get("player_id", "Unknown")
+            player_name = result.get("player_name", "Unknown")
+            total_distance = result.get("total_distance", "N/A")
+            print(f"{rank}위: {player_name} (ID: {player_id}, 총 이동 거리: {total_distance})")
+        print("-" * 30)
+        print("게임이 종료되었습니다. 수고하셨습니다!")
+        print("종료하려면 'q'를 입력하세요.")
 
     def display_view(self):
-        clear_screen()  # 추가: 화면 지우기
+        clear_screen()
         if self.current_map and self.current_map in self.maps:
             map_info = self.maps[self.current_map]
             width = map_info['width']
@@ -234,62 +368,64 @@ class ClientState:
             obstacles = { (obs['x'], obs['y']) for obs in map_info.get('obstacles', []) }
             portals = { (portal['x'], portal['y']): portal['name'] for portal in map_info.get('portals', []) }
 
+            # 시작, 종료 지점 좌표 추출
             start = (map_info['start']['x'], map_info['start']['y'])
             end = (map_info.get('end', {}).get('x'), map_info.get('end', {}).get('y'))
 
-            x, y = self.position
-
             print(f"현재 맵: {self.current_map} (Room ID: {self.room_id})")
-            print(f"현재 위치: ({x}, {y})\n")
+            print(f"현재 위치: {self.position}\n")
 
             for j in reversed(range(height)):
                 row = []
                 for i in range(width):
-                    # 현재 맵의 seen_maps에서 해당 위치가 보이는지 확인
+                    # 시야 내 셀인지 확인
                     if self.current_map in self.seen_maps and (i, j) in self.seen_maps[self.current_map]:
-                        # 모서리에 벽 추가
+                        # 가장자리(모서리, 상단/하단, 좌측/우측) 처리
                         if (i == 0 and j == 0) or (i == width - 1 and j == 0) or \
                            (i == 0 and j == height - 1) or (i == width - 1 and j == height - 1):
                             row.append('+')
-                        # 맨 위와 맨 아래에 가로선 추가
                         elif j == 0 or j == height - 1:
                             row.append('-')
-                        # 맨 왼쪽과 맨 오른쪽에 세로선 추가
                         elif i == 0 or i == width - 1:
                             row.append('|')
-                        # 플레이어 위치
+                        # 플레이어 위치 체크: 다른 모든 것보다 우선
                         elif (i, j) == self.position:
                             row.append('U')
-                        # 시작점
+                        # 시작점, 종료점, 포탈, 장애물 등의 순서
                         elif (i, j) == start:
                             row.append('S')
-                        # 종료점
                         elif end and (i, j) == end:
                             row.append('E')
-                        # 포탈
                         elif (i, j) in portals:
                             row.append('P')
-                        # 장애물
                         elif (i, j) in obstacles:
                             row.append('#')
-                        # 빈 공간
                         else:
-                            row.append('.')
+                            # 다른 플레이어 체크
+                            player_here = False
+                            for pid, pdata in self.players.items():
+                                if pdata['position'] == (i, j):
+                                    row.append('O')
+                                    player_here = True
+                                    break
+                            if not player_here:
+                                row.append('.')
                     else:
-                        # 안개 영역 표시
-                        row.append('?')
+                        row.append('?')  # 안개 영역
                 print(' '.join(row))
             print()
             print("이동할 방향을 선택하세요 (w: Up, a: Left, s: Down, d: Right) 또는 'q'를 누르세요:")
             print()
         else:
-            print("현재 맵 정보가 없습니다.")
-            print()
+            print("현재 맵 정보가 없습니다.\n")
 
     def refresh_screen(self):
         """화면을 새로 고치고 메시지를 표시하는 함수"""
         clear_screen()
-        self.display_view()
+        if self.show_leaderboard and self.leaderboard_results is not None:
+            self.display_leaderboard(self.leaderboard_results)
+        else:
+            self.display_view()
         if self.message:
             print(self.message)
             self.message = ""
@@ -356,7 +492,14 @@ def send_move_command(sock, direction, state: ClientState):
     new_y = current_y + dy
 
     if 0 <= new_x < width and 0 <= new_y < height:
+        if not state.self_id:
+            state.message = "자신의 player_id가 설정되지 않았습니다."
+            state.refresh_screen()
+            print("자신의 player_id가 설정되지 않았습니다.")
+            return
+
         move_data = {
+            "player_id": state.self_id,  # 자신의 player_id 포함
             "x": new_x,
             "y": new_y
         }
@@ -396,8 +539,9 @@ def main():
         return
 
     if prompt_join():
+        player_name = "TestUser"  # 원하는 플레이어 이름으로 설정 가능
         join_pkt = build_packet(MainEventType.NETWORK, NetworkSubType.JOIN,
-                                {"player_id": "player1", "player_name": "TestUser1"})
+                                {"player_name": player_name})
         try:
             s.sendall(join_pkt)
             state.message = "[Client] JOIN 패킷 전송 완료."
@@ -432,26 +576,32 @@ def main():
                     break
             elif r == sys.stdin:
                 # 사용자 입력이 들어온 경우
-                if state.game_started:
-                    choice = sys.stdin.readline().strip().lower()
-                    if choice == 'q':
-                        print("클라이언트를 종료합니다.")
+                # 만약 game_started가 False라면, 리더보드 화면 상태이므로 'q' 입력만 허용합니다.
+                choice = sys.stdin.readline().strip().lower()
+                if choice == 'q':
+                    print("클라이언트를 종료합니다.")
+                    if state.self_id:
                         leave_pkt = build_packet(MainEventType.NETWORK, NetworkSubType.LEFT,
-                                                 {"player_id": "player1", "player_name": "TestUser1"})
+                                                 {"player_id": state.self_id, "player_name": state.player_name})
                         try:
                             s.sendall(leave_pkt)
                             print("[Client] LEFT 패킷 전송 완료.")
                         except:
                             print("[Client] LEFT 패킷 전송 실패.")
-                        running = False
-                        break
-                    elif choice in DIRECTIONS:
-                        send_move_command(s, choice, state)
                     else:
-                        print("잘못된 입력입니다. 'w', 'a', 's', 'd' 또는 'q'를 입력해주세요.")
+                        print("자신의 player_id를 알 수 없어 LEFT 패킷을 보낼 수 없습니다.")
+                    running = False
+                    break
                 else:
-                    # 게임이 시작되지 않았을 때는 입력을 무시하거나 다른 처리를 할 수 있습니다.
-                    print("게임이 시작되지 않았습니다. 잠시 기다려주세요.")
+                    if state.game_started:
+                        if choice in DIRECTIONS:
+                            send_move_command(s, choice, state)
+                        else:
+                            print("잘못된 입력입니다. 'w', 'a', 's', 'd' 또는 'q'를 입력해주세요.")
+                    else:
+                        # finish 상태에서는 다른 입력은 무시하고, 'q' 입력만 가능
+                        print("게임이 종료되었습니다. 종료하려면 'q'를 입력하세요.")
+
 
         # 게임이 시작되지 않았거나, 입력이 필요 없는 경우 잠시 대기
         time.sleep(0.1)  # CPU 점유율을 낮추기 위한 sleep

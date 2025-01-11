@@ -16,6 +16,7 @@ ${SRC_DIR}/connection.cpp
 ${SRC_DIR}/thread_pool.cpp
 ${SRC_DIR}/connection_manager.cpp
 ${SRC_DIR}/game_manager.cpp
+${SRC_DIR}/game_result.cpp
 ${SRC_DIR}/room.cpp
 ${SRC_DIR}/map.cpp
 ${SRC_DIR}/player.cpp
