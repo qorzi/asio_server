@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <chrono>
 #include <nlohmann/json.hpp>
 
 /**
@@ -35,6 +36,11 @@ public:
 
     explicit GameResult(int room_id);
 
+    // 게임 시작 시간을 기록
+    void set_game_start_time();
+    // 게임 종료 시간을 기록하고, 진행 시간(초 단위) 계산
+    void set_game_end_time();
+
     // 플레이어 결과 추가 (순서대로 rank 부여)
     void add_player_result(const std::shared_ptr<Player>& player);
 
@@ -46,6 +52,11 @@ private:
     int current_rank_ = 1;                // 현재 순위
     std::vector<PlayerResult> results_;   // 플레이어 결과 목록
     mutable std::mutex result_mutex_;     // 동기화
+
+    // 게임 관련 시간 정보 (타임스탬프)
+    std::chrono::system_clock::time_point game_start_time_;
+    std::chrono::system_clock::time_point game_end_time_;
+    int play_duration_seconds_ = 0;       // 진행 시간(초)
 
 };
 

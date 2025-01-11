@@ -126,18 +126,11 @@ class ClientState:
         elif sub_type == GameSubType.PLAYER_COME_IN_MAP:
             self.update_player_come_in_map(data)
         elif sub_type == GameSubType.PLAYER_COME_OUT_MAP:
-            player_id = data.get('player_id', 'Unknown')
-            self.message = f"플레이어가 맵에서 나갔습니다: {player_id}"
-            if player_id in self.players:
-                del self.players[player_id]
-            self.refresh_screen()
-            print(f"플레이어가 맵에서 나갔습니다: {player_id}")
+            self.update_player_come_out_map(data)
         elif sub_type == GameSubType.PLAYER_FINISHED:
             self.update_player_finished(data)
         elif sub_type == GameSubType.GAME_END:
-            self.message = "게임이 종료되었습니다."
-            self.refresh_screen()
-            print("게임이 종료되었습니다.")
+            self.update_game_end(data)
         else:
             self.message = f"알 수 없는 GAME 서브타입: {sub_type}"
             self.refresh_screen()
@@ -169,6 +162,18 @@ class ClientState:
         self.message = "방이 생성되었습니다."
         self.refresh_screen()
         print("방이 생성되었습니다.")
+
+    def update_count_down(self, data):
+        count = data.get('count', '0')
+        self.message = f"카운트다운: {count}초"
+        self.refresh_screen()
+        print(f"카운트다운: {count}초")
+
+    def update_game_start(self, data):
+        self.game_started = True
+        self.message = "게임이 시작되었습니다!"
+        self.refresh_screen()
+        print("게임이 시작되었습니다!")
 
     def update_player_moved(self, data):
         player_id = data.get('player_id', 'Unknown')
@@ -207,18 +212,6 @@ class ClientState:
         # 이동 이벤트 후 display_view() 호출 (game_started가 True일 때만)
         if self.game_started:
             self.display_view()
-
-    def update_game_start(self, data):
-        self.game_started = True
-        self.message = "게임이 시작되었습니다!"
-        self.refresh_screen()
-        print("게임이 시작되었습니다!")
-
-    def update_count_down(self, data):
-        count = data.get('count', '0')
-        self.message = f"카운트다운: {count}초"
-        self.refresh_screen()
-        print(f"카운트다운: {count}초")
 
     def update_player_come_in_map(self, data):
         player_id = data.get('player_id', 'Unknown')
@@ -321,6 +314,14 @@ class ClientState:
             if 0 <= width - 1 < width and 0 <= j < height:
                 self.seen_maps[map_name].add((width - 1, j))
 
+    def update_player_come_out_map(self, data):
+        player_id = data.get('player_id', 'Unknown')
+        self.message = f"플레이어가 맵에서 나갔습니다: {player_id}"
+        if player_id in self.players:
+            del self.players[player_id]
+        self.refresh_screen()
+        print(f"플레이어가 맵에서 나갔습니다: {player_id}")
+
     def update_player_finished(self, data):
         player_id = data.get("player_id", "Unknown")
         results = data.get("results", [])
@@ -358,6 +359,13 @@ class ClientState:
         print("-" * 30)
         print("게임이 종료되었습니다. 수고하셨습니다!")
         print("종료하려면 'q'를 입력하세요.")
+
+    def update_game_end(self, data):
+        self.message = "게임이 종료되었습니다. 3초 후에 종료됩니다."
+        self.refresh_screen()
+        print("모든 게임이 종료되었습니다. 3초 후에 종료됩니다.")
+        time.sleep(3)
+        os._exit(0)
 
     def display_view(self):
         clear_screen()

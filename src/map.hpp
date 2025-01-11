@@ -64,6 +64,7 @@ public:
     bool add_player(std::shared_ptr<Player> p);
     bool remove_player(std::shared_ptr<Player> p);
     std::shared_ptr<Player> find_player(const std::string& player_id);
+    std::vector<std::shared_ptr<Player>> get_players() const;
 
     // 맵 정보 추출 함수 (to json)
     nlohmann::json extract_map_info() const;

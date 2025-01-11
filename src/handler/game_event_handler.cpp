@@ -35,10 +35,10 @@ void GameEventHandler::handle_event(const Event& event)
     case GameSubType::PLAYER_COME_IN_MAP:
     case GameSubType::PLAYER_COME_OUT_MAP:
     case GameSubType::PLAYER_FINISHED:
-        // 이벤트로 처리하지 않음 (통신 전용 이벤트)
+        // 이벤트로 처리하지 않음 (PLAYER_MOVED 내에서 로직으로 처리)
         break;
     case GameSubType::GAME_END:
-        // 게임 종료 및 게임 이력 저장 등등
+        handle_game_end(event);
         break;
     default:
         std::cerr << "[GameEventHandler] Unknown sub_type=" << event.sub_type << "\n";
@@ -84,7 +84,6 @@ void GameEventHandler::handle_room_create(const Event& ev)
     }
 
     // 6) 다음 이벤트: GAME_COUNTDOWN
-    //    - room_id
     Event countEv;
     countEv.main_type = MainEventType::GAME;
     countEv.sub_type  = (uint16_t)GameSubType::GAME_COUNTDOWN;
@@ -167,6 +166,10 @@ void GameEventHandler::handle_game_start(const Event& ev)
         std::cerr << "[GameEventHandler] handle_game_start: no room.\n";
         return;
     }
+
+    // 게임 시작 시간 기록
+    room->gr_.set_game_start_time();
+
     // start broadcast
     {
         nlohmann::json broadcast_msg {
@@ -295,9 +298,15 @@ void GameEventHandler::handle_player_moved(const Event& ev)
             cur_map->broadcast_in_map(resp);
         }
 
-        // [TODO] 모든 플레이어 도착 시, 게임 종료 이벤트
-        // 예: check if "room->allPlayersFinished()" => enqueue GAME_END, etc.
-        // ...
+        // 모든 플레이어 도착 시, 게임 종료 이벤트
+        if (room->is_all_players_finished()) {
+            Event endEv;
+            endEv.main_type = MainEventType::GAME;
+            endEv.sub_type  = (uint16_t)GameSubType::GAME_END;
+            endEv.room_id   = ev.room_id;
+            Reactor::get_instance().enqueue_event(endEv);
+        }
+        
         return;
     }
 
@@ -364,4 +373,38 @@ void GameEventHandler::handle_player_moved(const Event& ev)
             }
         }
     }
+}
+
+/** 
+ * GAME_END:
+ * - 게임 종료
+ * - 게임 종료 및 게임 이력 저장 등등
+ */
+void GameEventHandler::handle_game_end(const Event& ev)
+{
+    auto room = game_manager_.find_room(ev.room_id);
+    if(!room) {
+        std::cerr << "[GameEventHandler] handle_game_end: no room.\n";
+        return;
+    }
+
+    // 게임 종료 시간 기록
+    room->gr_.set_game_start_time();
+
+    // TODO: save game data
+
+
+    // end broadcast
+    {
+        nlohmann::json broadcast_msg {
+            {"action", "game_end"},
+            {"result", true}
+        };
+        std::string body = broadcast_msg.dump();
+        auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::GAME_END, body);
+        room->broadcast_message(resp);
+    }
+
+    // Room remove
+    game_manager_.remove_room(ev.room_id);
 }

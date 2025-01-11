@@ -36,6 +36,9 @@ public:
     //  -> 어떤 맵에 있는지 찾아 remove_player
     bool remove_player(std::shared_ptr<Player> player);
 
+    // 룸의 모든 플레이어가 경기를 마무리 했는지 확인
+    bool is_all_players_finished() const;
+
     // 편의 함수: 방 전체에 broadcast (각 맵의 플레이어 전체)
     void broadcast_message(const std::string& message);
 

@@ -331,7 +331,6 @@ bool Map::remove_player(std::shared_ptr<Player> p)
 
 /**
  * 맵에서 특정 플레이어 찾기
- * 
  */
 std::shared_ptr<Player> Map::find_player(const std::string& player_id)
 {
@@ -340,6 +339,15 @@ std::shared_ptr<Player> Map::find_player(const std::string& player_id)
         if(pl->id_ == player_id) return pl;
     }
     return nullptr;
+}
+
+/**
+ * 맵 내 모든 플레이어 목록 반환
+ */
+std::vector<std::shared_ptr<Player>> Map::get_players() const
+{
+    std::lock_guard<std::mutex> lock(map_mutex_);
+    return map_players_;
 }
 
 /** 

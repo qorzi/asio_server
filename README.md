@@ -13,7 +13,7 @@ asio_server/
 │   ├── reactor.cpp
 │   ├── connection.hpp
 │   ├── connection.cpp
-│   ├── connection_manager.hpp
+│   ├── connection_manager.hpp  # connection과 player 관계 저장 (1대1)
 │   ├── connection_manager.cpp
 │   ├── thread_pool.hpp
 │   ├── thread_pool.cpp
@@ -21,29 +21,32 @@ asio_server/
 │   ├── event.hpp
 │   ├── game_manager.hpp
 │   ├── game_manager.cpp
+│   ├── game_result.hpp
+│   ├── game_result.cpp
 │   ├── room.hpp
 │   ├── room.cpp
 │   ├── map.hpp
 │   ├── map.cpp
 │   ├── player.hpp
 │   ├── player.cpp
-│   └── handler/
+│   ├── point.hpp
+│   ├── utils.hpp
+│   ├── utils.cpp
+│   └── handler/           # 핸들러 폴더 (이벤트 디스패치 용도)
 │       ├── network_event_handler.hpp
 │       ├── network_event_handler.cpp
 │       ├── game_event_handler.hpp
-│       ├── game_event_handler.cpp
+│       └── game_event_handler.cpp
 ├── scripts/               # 스크립트 폴더
-│   ├── build/             # 빌드 아티팩트 생성 폴더 (빌드 시 자동 생성)
 │   ├── setup.sh           # 개발 환경 세팅 스크립트
 │   └── build.sh           # 빌드 스크립트
-├── tests/                 # 테스트 코드 폴더 (내부 구현 단위 테스트 - 통신X)
+├── build/                 # 빌드 아티팩트 생성 폴더 (빌드 시 자동 생성)
+├── tests/                 # 테스트 앱 폴더
 │   ├── CMakeLists.txt     # 테스트 앱 전용 빌드 설정
-│   └── test_room.cpp      # 서버 테스트
-└── client_test/           # 통신 테스트 시나리오 (임시)
+│   ├── test_maze.cpp      # 미로 생성 테스트
+│   └── test_packet.cpp    # 패킷 파싱 테스트
+└── client_test/           # 클라이언트 접속 및 플레이 테스트
 ```
-
-## 구현 진행도
-- 대기 상태의 룸에 참가 및 나가기 구현 [O]
 
 ## 게임 시나리오
 ### 게임 개요

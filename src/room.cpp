@@ -97,6 +97,29 @@ bool Room::remove_player(std::shared_ptr<Player> player)
 }
 
 /**
+ * 룸 내부의 모든 플레이어가 게임을 종료했는지 확인인
+ * (모든 맵의 플레이어 목록을 순회하여 확인)
+ */
+bool Room::is_all_players_finished() const {
+    // Room 내부의 맵 목록을 보호하기 위해 mutex 사용
+    std::lock_guard<std::mutex> lock(room_mutex_);
+    
+    // 각 Map마다 보유한 플레이어 목록에 접근하여 게임 완료 여부 검사
+    for (const auto& map_ptr : maps_) {
+        // Map 클래스에 플레이어 목록을 반환하는 accessor(get_players())가 있다고 가정합니다.
+        std::vector<std::shared_ptr<Player>> players = map_ptr->get_players();
+        for (const auto& player : players) {
+            // 플레이어가 존재하고, 아직 완료하지 않았다면 false 반환
+            if (player && !player->is_finished_) {
+                return false;
+            }
+        }
+    }
+    // 모든 맵의 모든 플레이어가 완료되었다면 true 반환
+    return true;
+}
+
+/**
  * 방 전체 브로드캐스트:
  * 모든 맵에 있는 플레이어에게 메시지 전송
  */

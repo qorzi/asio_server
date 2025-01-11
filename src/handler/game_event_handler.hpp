@@ -26,6 +26,7 @@ private:
     void handle_game_countdown(const Event& ev);
     void handle_game_start(const Event& ev);
     void handle_player_moved(const Event& ev);
+    void handle_game_end(const Event& ev);
 };
 
 #endif // GAME_EVENT_HANDLER_HPP
