@@ -341,6 +341,11 @@ std::shared_ptr<Player> Map::find_player(const std::string& player_id)
  *      {"x":..., "y":...},
  *      ...
  *   ]
+ *   "players": [
+ *      {"id": "player1", "name": "TestUser1", "position": {"x": 10, "y": 20}},
+ *      {"id": "player2", "name": "TestUser2", "position": {"x": 15, "y": 25}},
+ *      ...
+ *   ]
  * }
  */
 nlohmann::json Map::extracte_map_info() const
@@ -386,6 +391,22 @@ nlohmann::json Map::extracte_map_info() const
         obstacle_array.push_back(ojson);
     }
     map_info["obstacles"] = obstacle_array;
+
+    // players
+    nlohmann::json players_array = nlohmann::json::array();
+    for (const auto& player_ptr : map_players_) {
+        if (player_ptr) { // nullptr 체크
+            nlohmann::json pjson;
+            pjson["id"] = player_ptr->id_;
+            pjson["name"] = player_ptr->name_;
+            pjson["position"] = {
+                {"x", player_ptr->position_.x},
+                {"y", player_ptr->position_.y}
+            };
+            players_array.push_back(pjson);
+        }
+    }
+    map_info["players"] = players_array;
 
     return map_info;
 }
