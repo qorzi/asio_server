@@ -36,6 +36,9 @@ public:
     //  -> 어떤 맵에 있는지 찾아 remove_player
     bool remove_player(std::shared_ptr<Player> player);
 
+    // 방 전체에서 모든 플레이어를 찾아 반환
+    std::vector<std::shared_ptr<Player>> get_all_players() const;
+
     // 룸의 모든 플레이어가 경기를 마무리 했는지 확인
     bool is_all_players_finished() const;
 

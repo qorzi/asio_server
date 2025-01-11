@@ -379,6 +379,7 @@ void GameEventHandler::handle_player_moved(const Event& ev)
  * GAME_END:
  * - 게임 종료
  * - 게임 종료 및 게임 이력 저장 등등
+ * - 플레이어-커넥션 관계 제거
  */
 void GameEventHandler::handle_game_end(const Event& ev)
 {
@@ -403,6 +404,16 @@ void GameEventHandler::handle_game_end(const Event& ev)
         std::string body = broadcast_msg.dump();
         auto resp = Utils::create_response_string(MainEventType::GAME, (uint16_t)GameSubType::GAME_END, body);
         room->broadcast_message(resp);
+    }
+
+    // romove connection-player relationship
+    {
+        auto& conn_manager = ConnectionManager::get_instance();
+        // room 내의 모든 플레이어 목록 획득
+        auto all_players = room->get_all_players();
+        for (const auto& player : all_players) {
+            conn_manager.unregister_connection(player);
+        }
     }
 
     // Room remove
