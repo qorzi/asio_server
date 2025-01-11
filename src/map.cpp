@@ -115,7 +115,7 @@ void Map::generate_random_obstacles(bool is_end)
     const std::vector<Point> directions = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
 
     // 최대 재시도 횟수 설정 (예: 10회)
-    const int MAX_ATTEMPTS = 10;
+    const int MAX_ATTEMPTS = 50;
     int attempt = 0;
 
     Point main_target;
