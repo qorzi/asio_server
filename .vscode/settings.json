@@ -85,5 +85,7 @@
         "regex": "cpp",
         "ranges": "cpp"
     },
-    "C_Cpp.errorSquiggles": "disabled"
+    "C_Cpp.errorSquiggles": "disabled",
+    "markdown-pdf.displayHeaderFooter": false
+
 }
