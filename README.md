@@ -1,6 +1,33 @@
 # 비동기 이벤트 기반 서버 프로젝트
 - boost.asio를 사용하여, 리액터 패턴 형태의 비동기 이벤트 기반 서버를 구축한다.
 
+## 개발 환경
+- Ubutu 22.04
+### 개발 환경 구성
+```bash
+$ ./scripts/setup.sh
+```
+### 빌드 명령어
+```bash
+# 디버거 모드
+$ ./scripts/build.sh -d
+
+# 운영 모드
+$ ./scripts/build.sh
+```
+### 테스트 명령어
+```bash
+# gtest app (빌드 후, 사용)
+$ ./build/tests/tests
+```
+### 서버 실행 및 테스트 앱 실행 명령어
+```bash
+# 서버 실행
+$ ./build/asio_server
+
+# 클라이언트 실행
+$ python3 ./client_test/client_test.py
+```
 ## 폴더 구조
 ```plain
 asio_server/
